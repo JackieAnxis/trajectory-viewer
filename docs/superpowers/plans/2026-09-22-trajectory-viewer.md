@@ -40,11 +40,10 @@
 | `data-anno-card` 属性 | `data-tv-anno-card` |
 | `@keyframes anno-flash` / `anno-card-flash` | `@keyframes tv-anno-flash` / `tv-anno-card-flash` |
 
-等价 sed（macOS 自带 BSD sed；**每个文件只执行一次**，重复执行会产生 `tv-tv-` 双前缀；注意长名在前防子串误配）：
+等价 sed（macOS 自带 BSD sed；**每个文件只执行一次**，重复执行会产生 `tv-tv-` 双前缀；`\bcode-wrap\b` 单规则即可同时正确重命名 `code-wrap` 与 `code-wrap-toggle`，不得再为其单独立规则——串联会产生 `tv-tv-code-wrap-toggle`；`markdown` 只匹配类名字符串与选择器两种形态，防止腐蚀 `react-markdown` 包名导入）：
 
 ```bash
 sed -i '' -E \
-  -e 's/\bcode-wrap-toggle\b/tv-code-wrap-toggle/g' \
   -e 's/\bcode-nowrap\b/tv-code-nowrap/g' \
   -e 's/\bcode-block\b/tv-code-block/g' \
   -e 's/\bcode-wrap\b/tv-code-wrap/g' \
@@ -55,7 +54,8 @@ sed -i '' -E \
   -e 's/\banno-/tv-anno-/g' \
   -e 's/\bdelivery-/tv-delivery-/g' \
   -e 's/\bpair-/tv-pair-/g' \
-  -e 's/\bmarkdown\b/tv-markdown/g' \
+  -e 's/"markdown"/"tv-markdown"/g' \
+  -e 's/\.markdown\b/.tv-markdown/g' \
   -e 's/\bdata-anno-card\b/data-tv-anno-card/g' \
   <file>
 ```
@@ -942,14 +942,14 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 cp SRC/components/JsonHighlight.test.tsx src/components/JsonHighlight.test.tsx
 cp SRC/components/Markdown.test.tsx src/components/Markdown.test.tsx
 sed -i '' -E \
-  -e 's/\bcode-wrap-toggle\b/tv-code-wrap-toggle/g' \
   -e 's/\bcode-nowrap\b/tv-code-nowrap/g' \
   -e 's/\bcode-block\b/tv-code-block/g' \
   -e 's/\bcode-wrap\b/tv-code-wrap/g' \
   -e 's/\bjson-highlight\b/tv-json-highlight/g' \
   -e 's/\bjson-hl-line\b/tv-json-hl-line/g' \
   -e 's/\bchat-/tv-chat-/g' \
-  -e 's/\bmarkdown\b/tv-markdown/g' \
+  -e 's/"markdown"/"tv-markdown"/g' \
+  -e 's/\.markdown\b/.tv-markdown/g' \
   src/components/JsonHighlight.test.tsx src/components/Markdown.test.tsx
 ```
 
@@ -965,14 +965,14 @@ cp SRC/components/JsonHighlight.tsx src/components/JsonHighlight.tsx
 cp SRC/components/Markdown.tsx src/components/Markdown.tsx
 cp SRC/components/WrapToggleButton.tsx src/components/WrapToggleButton.tsx
 sed -i '' -E \
-  -e 's/\bcode-wrap-toggle\b/tv-code-wrap-toggle/g' \
   -e 's/\bcode-nowrap\b/tv-code-nowrap/g' \
   -e 's/\bcode-block\b/tv-code-block/g' \
   -e 's/\bcode-wrap\b/tv-code-wrap/g' \
   -e 's/\bjson-highlight\b/tv-json-highlight/g' \
   -e 's/\bjson-hl-line\b/tv-json-hl-line/g' \
   -e 's/\bchat-/tv-chat-/g' \
-  -e 's/\bmarkdown\b/tv-markdown/g' \
+  -e 's/"markdown"/"tv-markdown"/g' \
+  -e 's/\.markdown\b/.tv-markdown/g' \
   src/components/JsonHighlight.tsx src/components/Markdown.tsx src/components/WrapToggleButton.tsx
 ```
 
@@ -1751,7 +1751,6 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 ```bash
 cp SRC/components/MessageStream.test.tsx src/components/MessageStreamView.test.tsx
 sed -i '' -E \
-  -e 's/\bcode-wrap-toggle\b/tv-code-wrap-toggle/g' \
   -e 's/\bchat-/tv-chat-/g' -e 's/\banno-/tv-anno-/g' \
   -e 's/\bdelivery-/tv-delivery-/g' -e 's/\bpair-/tv-pair-/g' \
   -e 's/\bjson-highlight\b/tv-json-highlight/g' \
@@ -1802,7 +1801,6 @@ Expected: FAIL（组件不存在）
 ```bash
 cp SRC/components/MessageStream.tsx src/components/MessageStreamView.tsx
 sed -i '' -E \
-  -e 's/\bcode-wrap-toggle\b/tv-code-wrap-toggle/g' \
   -e 's/\bchat-/tv-chat-/g' -e 's/\banno-/tv-anno-/g' \
   -e 's/\bdelivery-/tv-delivery-/g' -e 's/\bpair-/tv-pair-/g' \
   -e 's/\bjson-highlight\b/tv-json-highlight/g' \
@@ -3279,8 +3277,8 @@ createRoot(document.getElementById("app")!).render(<App />);
 - [ ] **Step 3: 验证构建与类型**
 
 Run: `npx tsc --noEmit && npx vite build demo --outDir demo-dist --emptyOutDir`
-Expected: 构建成功（demo 产物可临时输出验证后删除 `demo-dist/`）
-再 Run: `rm -rf demo-dist && npx vitest run`
+Expected: 构建成功（demo 产物输出到 `demo/demo-dist/`，验证后删除）
+再 Run: `rm -rf demo/demo-dist && npx vitest run`
 Expected: 全绿
 
 - [ ] **Step 4: Commit**
