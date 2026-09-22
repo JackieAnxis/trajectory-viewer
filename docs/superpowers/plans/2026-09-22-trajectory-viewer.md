@@ -497,8 +497,8 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 - [ ] **Step 1: 写失败测试 `src/ui/ui.test.tsx`**
 
 ```tsx
-import { render, screen, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import { useState } from "react";
 import { TvBadge } from "./TvBadge";
 import { TvAvatar } from "./TvAvatar";
@@ -506,6 +506,10 @@ import { TvSegmented } from "./TvSegmented";
 import { TvTooltip } from "./TvTooltip";
 import { ConfirmButton } from "./ConfirmButton";
 import { NotifyProvider, useNotify } from "./notify";
+
+// 本仓 vitest 未开 globals，@testing-library/react 内部的 afterEach 自动清理不会注册；
+// 显式注册，避免用例间 DOM 累积导致 getByRole/getByText 命中上一用例的残留节点
+afterEach(cleanup);
 
 test("TvTooltip 以 data-tip 承载文本供 CSS ::after 展示", () => {
   render(<TvTooltip title="提示文本"><button>悬停我</button></TvTooltip>);
@@ -520,7 +524,9 @@ test("TvSegmented 渲染选项并回调选中值", () => {
   render(<Demo />);
   const b = screen.getByRole("tab", { name: "乙" });
   expect(screen.getByRole("tab", { name: "甲" })).toHaveAttribute("aria-selected", "true");
-  b.click();
+  // 用 fireEvent.click 而非原生 el.click()：RTL 只对 fireEvent 套 act()，
+  // 原生 click 在 React 18 并发根下不会同步刷新 DOM，断言读不到新状态
+  fireEvent.click(b);
   expect(b).toHaveAttribute("aria-selected", "true");
 });
 
@@ -541,13 +547,14 @@ test("ConfirmButton 二次点击才执行，超时复原", () => {
   const onConfirm = vi.fn();
   render(<ConfirmButton label="删除" confirmLabel="确认删除？" onConfirm={onConfirm} />);
   const btn = screen.getByRole("button");
-  btn.click();                                   // 第一次：进入确认态
+  fireEvent.click(btn);                          // 第一次：进入确认态
   expect(btn).toHaveTextContent("确认删除？");
   expect(onConfirm).not.toHaveBeenCalled();
-  vi.advanceTimersByTime(2100);                  // 超时复原
+  // 定时器回调里的 setState 在 act 外不会同步落到 DOM，推进后需 act 包一层再断言
+  act(() => { vi.advanceTimersByTime(2100); });  // 超时复原
   expect(btn).toHaveTextContent("删除");
-  btn.click();
-  btn.click();                                   // 确认态内第二次：执行
+  fireEvent.click(btn);
+  fireEvent.click(btn);                          // 确认态内第二次：执行
   expect(onConfirm).toHaveBeenCalledTimes(1);
   vi.useRealTimers();
 });
@@ -559,7 +566,7 @@ test("notify：传了 onNotify 直接转发，不渲染内置 toast", () => {
     return <button onClick={() => notify("error", "出错了")}>发</button>;
   }
   render(<NotifyProvider onNotify={spy}><Demo /></NotifyProvider>);
-  screen.getByText("发").click();
+  fireEvent.click(screen.getByText("发"));
   expect(spy).toHaveBeenCalledWith("error", "出错了");
   expect(document.querySelector(".tv-toast")).toBeNull();
 });
@@ -570,7 +577,7 @@ test("notify：未传 onNotify 时内置 toast 兜底并可读", async () => {
     return <button onClick={() => notify("warning", "该段已有评注")}>发</button>;
   }
   render(<NotifyProvider><Demo /></NotifyProvider>);
-  screen.getByText("发").click();
+  fireEvent.click(screen.getByText("发"));
   await waitFor(() => expect(document.querySelector(".tv-toast-warning")).toHaveTextContent("该段已有评注"));
 });
 ```
