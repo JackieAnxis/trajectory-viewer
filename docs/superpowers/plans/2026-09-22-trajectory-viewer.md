@@ -40,7 +40,7 @@
 | `data-anno-card` 属性 | `data-tv-anno-card` |
 | `@keyframes anno-flash` / `anno-card-flash` | `@keyframes tv-anno-flash` / `tv-anno-card-flash` |
 
-等价 sed（macOS 自带 BSD sed；**每个文件只执行一次**，重复执行会产生 `tv-tv-` 双前缀；**BSD sed 的 `\b` 不匹配任何内容（替换零发生、会静默假绿），一律改用 `[[:<:]]`（词首）/`[[:>:]]`（词尾）**；`[[:<:]]code-wrap[[:>:]]` 单规则即可同时正确重命名 `code-wrap` 与 `code-wrap-toggle`，不得再为其单独立规则——串联会产生 `tv-tv-code-wrap-toggle`；`markdown` 只匹配类名字符串与选择器两种形态，防止腐蚀 `react-markdown` 包名导入；凡含 `anno-` 的规则行必须紧随一条 `s/data-tv-anno-id/data-anno-id/g` 纠正规则——`data-anno-id` 是划线定位契约属性，只改类名、不改属性名）：
+等价 sed（macOS 自带 BSD sed；**每个文件只执行一次**，重复执行会产生 `tv-tv-` 双前缀；**BSD sed 的 `\b` 不匹配任何内容（替换零发生、会静默假绿），一律改用 `[[:<:]]`（词首）/`[[:>:]]`（词尾）**；`[[:<:]]code-wrap[[:>:]]` 单规则即可同时正确重命名 `code-wrap` 与 `code-wrap-toggle`，不得再为其单独立规则——串联会产生 `tv-tv-code-wrap-toggle`；`markdown` 只匹配类名字符串与选择器两种形态，防止腐蚀 `react-markdown` 包名导入；凡含 `anno-` 的规则行必须紧随一条 `s/data-tv-anno-id/data-anno-id/g` 纠正规则——`data-anno-id` 是划线定位契约属性，只改类名、不改属性名；`[[:<:]]`/`[[:>:]]` 是 BSD 扩展，**本搬迁脚本仅在 macOS 自带 BSD sed 下执行**，若将来需在 GNU sed / Linux CI 上重放，须改用可移植写法 `s/(^|[^A-Za-z0-9_-])anno-/\1tv-anno-/g` 这一形态，否则 GNU sed 会把 `[[:<:]]` 当字面量匹配、重演「静默零替换」）：
 
 ```bash
 sed -i '' -E \
