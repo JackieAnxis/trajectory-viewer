@@ -18,7 +18,7 @@
 - 目标仓库：`/Users/jackie/Repositories/trajectory-viewer`（当前空仓库，main 分支，直接提交）
 - 代码注释与 UI 文案一律中文；commit 信息格式 `type: 中文描述`（type ∈ feat/test/docs/chore/refactor），末尾带 `Co-Authored-By: Claude Code <noreply@anthropic.com>`
 - **禁止** import `antd`、`monaco-editor`、`@monaco-editor/react`、`react-router-dom`
-- 类名一律 `tv-` 前缀；`data-msg-idx`/`data-region`/`data-sub` 锚点属性名不变（划线功能依赖）
+- 类名一律 `tv-` 前缀；`data-msg-idx`/`data-region`/`data-sub`/`data-anno-id` 锚点属性名不变（划线功能依赖）
 - 状态修饰类（`is-fail`/`is-orphan`/`liked`/`active`/`open`/`sec-args`/`sec-fail`）保持原名，但 CSS 选择器必须始终与某个 `tv-` 前缀类复合出现（如 `.tv-anno-like.liked`）
 - 颜色一律经 `var(--tv-*)` 引用，禁止在组件内联硬编码色值
 - 分页常量 `PAGE = 300`；哨兵 `rootMargin: "200px"`；跨页定位上限 200 页；闪烁动画 1600ms
@@ -40,23 +40,23 @@
 | `data-anno-card` 属性 | `data-tv-anno-card` |
 | `@keyframes anno-flash` / `anno-card-flash` | `@keyframes tv-anno-flash` / `tv-anno-card-flash` |
 
-等价 sed（macOS 自带 BSD sed；**每个文件只执行一次**，重复执行会产生 `tv-tv-` 双前缀；`\bcode-wrap\b` 单规则即可同时正确重命名 `code-wrap` 与 `code-wrap-toggle`，不得再为其单独立规则——串联会产生 `tv-tv-code-wrap-toggle`；`markdown` 只匹配类名字符串与选择器两种形态，防止腐蚀 `react-markdown` 包名导入）：
+等价 sed（macOS 自带 BSD sed；**每个文件只执行一次**，重复执行会产生 `tv-tv-` 双前缀；**BSD sed 的 `\b` 不匹配任何内容（替换零发生、会静默假绿），一律改用 `[[:<:]]`（词首）/`[[:>:]]`（词尾）**；`[[:<:]]code-wrap[[:>:]]` 单规则即可同时正确重命名 `code-wrap` 与 `code-wrap-toggle`，不得再为其单独立规则——串联会产生 `tv-tv-code-wrap-toggle`；`markdown` 只匹配类名字符串与选择器两种形态，防止腐蚀 `react-markdown` 包名导入；凡含 `anno-` 的规则行必须紧随一条 `s/data-tv-anno-id/data-anno-id/g` 纠正规则——`data-anno-id` 是划线定位契约属性，只改类名、不改属性名）：
 
 ```bash
 sed -i '' -E \
-  -e 's/\bcode-nowrap\b/tv-code-nowrap/g' \
-  -e 's/\bcode-block\b/tv-code-block/g' \
-  -e 's/\bcode-wrap\b/tv-code-wrap/g' \
-  -e 's/\bjson-highlight\b/tv-json-highlight/g' \
-  -e 's/\bjson-hl-line\b/tv-json-hl-line/g' \
-  -e 's/\bavatar-zero\b/tv-avatar-zero/g' \
-  -e 's/\bchat-/tv-chat-/g' \
-  -e 's/\banno-/tv-anno-/g' \
-  -e 's/\bdelivery-/tv-delivery-/g' \
-  -e 's/\bpair-/tv-pair-/g' \
+  -e 's/[[:<:]]code-nowrap[[:>:]]/tv-code-nowrap/g' \
+  -e 's/[[:<:]]code-block[[:>:]]/tv-code-block/g' \
+  -e 's/[[:<:]]code-wrap[[:>:]]/tv-code-wrap/g' \
+  -e 's/[[:<:]]json-highlight[[:>:]]/tv-json-highlight/g' \
+  -e 's/[[:<:]]json-hl-line[[:>:]]/tv-json-hl-line/g' \
+  -e 's/[[:<:]]avatar-zero[[:>:]]/tv-avatar-zero/g' \
+  -e 's/[[:<:]]chat-/tv-chat-/g' \
+  -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' \
+  -e 's/[[:<:]]delivery-/tv-delivery-/g' \
+  -e 's/[[:<:]]pair-/tv-pair-/g' \
   -e 's/"markdown"/"tv-markdown"/g' \
-  -e 's/\.markdown\b/.tv-markdown/g' \
-  -e 's/\bdata-anno-card\b/data-tv-anno-card/g' \
+  -e 's/\.markdown[[:>:]]/.tv-markdown/g' \
+  -e 's/[[:<:]]data-anno-card[[:>:]]/data-tv-anno-card/g' \
   <file>
 ```
 
@@ -381,7 +381,7 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 
 ```bash
 cp SRC/components/annotationAnchor.test.ts src/core/annotationAnchor.test.ts
-sed -i '' -E -e 's/\banno-/tv-anno-/g' -e 's/\bchat-/tv-chat-/g' src/core/annotationAnchor.test.ts
+sed -i '' -E -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' -e 's/[[:<:]]chat-/tv-chat-/g' src/core/annotationAnchor.test.ts
 ```
 
 （测试里构造的 DOM fixture 与选择器字符串含 `anno-mark` 等类名，一并重命名。）Run: `npx vitest run src/core/annotationAnchor.test.ts`
@@ -391,7 +391,7 @@ Expected: FAIL（`Cannot find module './annotationAnchor'`）
 
 ```bash
 cp SRC/components/annotationAnchor.ts src/core/annotationAnchor.ts
-sed -i '' -E -e 's/\banno-/tv-anno-/g' src/core/annotationAnchor.ts
+sed -i '' -E -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' src/core/annotationAnchor.ts
 ```
 
 该文件只 import `../types`；`closestBlock`/`blockSelector` 走 `data-msg-idx`/`data-region` 属性（不变）；`clearMarks`/`overlapsMark` 内的 `mark.anno-mark` 选择器经 sed 变为 `mark.tv-anno-mark`。Run: `npx vitest run src/core/annotationAnchor.test.ts && npx tsc --noEmit`
@@ -942,14 +942,14 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 cp SRC/components/JsonHighlight.test.tsx src/components/JsonHighlight.test.tsx
 cp SRC/components/Markdown.test.tsx src/components/Markdown.test.tsx
 sed -i '' -E \
-  -e 's/\bcode-nowrap\b/tv-code-nowrap/g' \
-  -e 's/\bcode-block\b/tv-code-block/g' \
-  -e 's/\bcode-wrap\b/tv-code-wrap/g' \
-  -e 's/\bjson-highlight\b/tv-json-highlight/g' \
-  -e 's/\bjson-hl-line\b/tv-json-hl-line/g' \
-  -e 's/\bchat-/tv-chat-/g' \
+  -e 's/[[:<:]]code-nowrap[[:>:]]/tv-code-nowrap/g' \
+  -e 's/[[:<:]]code-block[[:>:]]/tv-code-block/g' \
+  -e 's/[[:<:]]code-wrap[[:>:]]/tv-code-wrap/g' \
+  -e 's/[[:<:]]json-highlight[[:>:]]/tv-json-highlight/g' \
+  -e 's/[[:<:]]json-hl-line[[:>:]]/tv-json-hl-line/g' \
+  -e 's/[[:<:]]chat-/tv-chat-/g' \
   -e 's/"markdown"/"tv-markdown"/g' \
-  -e 's/\.markdown\b/.tv-markdown/g' \
+  -e 's/\.markdown[[:>:]]/.tv-markdown/g' \
   src/components/JsonHighlight.test.tsx src/components/Markdown.test.tsx
 ```
 
@@ -965,14 +965,14 @@ cp SRC/components/JsonHighlight.tsx src/components/JsonHighlight.tsx
 cp SRC/components/Markdown.tsx src/components/Markdown.tsx
 cp SRC/components/WrapToggleButton.tsx src/components/WrapToggleButton.tsx
 sed -i '' -E \
-  -e 's/\bcode-nowrap\b/tv-code-nowrap/g' \
-  -e 's/\bcode-block\b/tv-code-block/g' \
-  -e 's/\bcode-wrap\b/tv-code-wrap/g' \
-  -e 's/\bjson-highlight\b/tv-json-highlight/g' \
-  -e 's/\bjson-hl-line\b/tv-json-hl-line/g' \
-  -e 's/\bchat-/tv-chat-/g' \
+  -e 's/[[:<:]]code-nowrap[[:>:]]/tv-code-nowrap/g' \
+  -e 's/[[:<:]]code-block[[:>:]]/tv-code-block/g' \
+  -e 's/[[:<:]]code-wrap[[:>:]]/tv-code-wrap/g' \
+  -e 's/[[:<:]]json-highlight[[:>:]]/tv-json-highlight/g' \
+  -e 's/[[:<:]]json-hl-line[[:>:]]/tv-json-hl-line/g' \
+  -e 's/[[:<:]]chat-/tv-chat-/g' \
   -e 's/"markdown"/"tv-markdown"/g' \
-  -e 's/\.markdown\b/.tv-markdown/g' \
+  -e 's/\.markdown[[:>:]]/.tv-markdown/g' \
   src/components/JsonHighlight.tsx src/components/Markdown.tsx src/components/WrapToggleButton.tsx
 ```
 
@@ -1528,7 +1528,7 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 
 ```bash
 cp SRC/components/AnnotatePopover.test.tsx src/components/AnnotatePopover.test.tsx
-sed -i '' -E -e 's/\banno-/tv-anno-/g' src/components/AnnotatePopover.test.tsx
+sed -i '' -E -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' src/components/AnnotatePopover.test.tsx
 ```
 
 Run: `npx vitest run src/components/AnnotatePopover.test.tsx`
@@ -1538,7 +1538,7 @@ Expected: FAIL（组件不存在）
 
 ```bash
 cp SRC/components/AnnotatePopover.tsx src/components/AnnotatePopover.tsx
-sed -i '' -E -e 's/\banno-/tv-anno-/g' src/components/AnnotatePopover.tsx
+sed -i '' -E -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' src/components/AnnotatePopover.tsx
 ```
 
 然后手动编辑：删 `import { Tooltip } from "antd";`，改为 `import { TvTooltip } from "../ui/TvTooltip";`；`<Tooltip title="Ctrl / ⌘ + Enter 发送">` → `<TvTooltip title="Ctrl / ⌘ + Enter 发送">`（闭合标签同步）。
@@ -1574,7 +1574,7 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 ```bash
 cp SRC/components/DeliveryCards.test.tsx src/components/DeliveryCards.test.tsx
 cp SRC/components/DeliveryDrawer.test.tsx src/components/DeliveryDrawer.test.tsx
-sed -i '' -E -e 's/\bdelivery-/tv-delivery-/g' src/components/DeliveryCards.test.tsx src/components/DeliveryDrawer.test.tsx
+sed -i '' -E -e 's/[[:<:]]delivery-/tv-delivery-/g' src/components/DeliveryCards.test.tsx src/components/DeliveryDrawer.test.tsx
 ```
 
 编辑 `DeliveryDrawer.test.tsx` 适配新 props：原 `item="demo"` prop 删除；`openInNewTab`/`workLink` 相关断言改为注入 `resolveDeliveryUrl={(p) => "/files/" + p}` 并 stub `window.open`（`vi.stubGlobal("open", vi.fn())`），断言以新 URL 打开；无 `resolveDeliveryUrl` 时文件行点击不调用 `window.open`。
@@ -1586,7 +1586,7 @@ Expected: FAIL（组件不存在）
 
 ```bash
 cp SRC/components/DeliveryCards.tsx src/components/DeliveryCards.tsx
-sed -i '' -E -e 's/\bdelivery-/tv-delivery-/g' src/components/DeliveryCards.tsx
+sed -i '' -E -e 's/[[:<:]]delivery-/tv-delivery-/g' src/components/DeliveryCards.tsx
 ```
 
 无需其他改动（props 不变）。
@@ -1751,10 +1751,10 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 ```bash
 cp SRC/components/MessageStream.test.tsx src/components/MessageStreamView.test.tsx
 sed -i '' -E \
-  -e 's/\bchat-/tv-chat-/g' -e 's/\banno-/tv-anno-/g' \
-  -e 's/\bdelivery-/tv-delivery-/g' -e 's/\bpair-/tv-pair-/g' \
-  -e 's/\bjson-highlight\b/tv-json-highlight/g' \
-  -e 's/\bavatar-zero\b/tv-avatar-zero/g' \
+  -e 's/[[:<:]]chat-/tv-chat-/g' -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' \
+  -e 's/[[:<:]]delivery-/tv-delivery-/g' -e 's/[[:<:]]pair-/tv-pair-/g' \
+  -e 's/[[:<:]]json-highlight[[:>:]]/tv-json-highlight/g' \
+  -e 's/[[:<:]]avatar-zero[[:>:]]/tv-avatar-zero/g' \
   src/components/MessageStreamView.test.tsx
 ```
 
@@ -1801,10 +1801,10 @@ Expected: FAIL（组件不存在）
 ```bash
 cp SRC/components/MessageStream.tsx src/components/MessageStreamView.tsx
 sed -i '' -E \
-  -e 's/\bchat-/tv-chat-/g' -e 's/\banno-/tv-anno-/g' \
-  -e 's/\bdelivery-/tv-delivery-/g' -e 's/\bpair-/tv-pair-/g' \
-  -e 's/\bjson-highlight\b/tv-json-highlight/g' \
-  -e 's/\bavatar-zero\b/tv-avatar-zero/g' \
+  -e 's/[[:<:]]chat-/tv-chat-/g' -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' \
+  -e 's/[[:<:]]delivery-/tv-delivery-/g' -e 's/[[:<:]]pair-/tv-pair-/g' \
+  -e 's/[[:<:]]json-highlight[[:>:]]/tv-json-highlight/g' \
+  -e 's/[[:<:]]avatar-zero[[:>:]]/tv-avatar-zero/g' \
   src/components/MessageStreamView.tsx
 ```
 
@@ -2087,7 +2087,7 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 
 ```bash
 cp SRC/components/AnnotationPanel.test.tsx src/components/AnnotationPanel.test.tsx
-sed -i '' -E -e 's/\banno-/tv-anno-/g' -e 's/\bdata-anno-card\b/data-tv-anno-card/g' \
+sed -i '' -E -e 's/[[:<:]]anno-/tv-anno-/g' -e 's/data-tv-anno-id/data-anno-id/g' -e 's/[[:<:]]data-anno-card[[:>:]]/data-tv-anno-card/g' \
   src/components/AnnotationPanel.test.tsx
 ```
 
