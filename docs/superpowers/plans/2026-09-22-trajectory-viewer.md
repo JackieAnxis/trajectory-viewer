@@ -962,7 +962,21 @@ sed -i '' -E \
   src/components/JsonHighlight.test.tsx src/components/Markdown.test.tsx
 ```
 
-再编辑 `JsonHighlight.test.tsx`：原断言内联 `style.color` 的用例改为断言类名——把形如 `expect(el).toHaveStyle({ color: ... })` 的 JSON 值颜色断言替换为 `expect(el).toHaveClass("tv-js")` / `"tv-jk"` / `"tv-jn"` / `"tv-jb"` / `"tv-jl"`（对应 string/key/number/boolean/null；测试里每个值类型一处断言即可）。
+再编辑 `JsonHighlight.test.tsx`：源测试**通篇没有颜色断言**（7 个断言组全走 `container.querySelector` 的选择器形态，全文无 `toHaveStyle`），故**不要去找 `toHaveStyle` 来改**。但本任务把内联 `style={{ color: C.* }}` 换成了 `className="tv-j*"`，这层映射在源测试里**没有任何断言守住**，必须补 1 个正向用例（追加到文件末尾）：
+
+```tsx
+test("颜色经 CSS 类名承载：键/字符串/数字/布尔/null 各归其类", () => {
+  // 顶层键值对使键 span 与值 span 落在同一行节点上；值类型各异以覆盖全部叶子分支
+  const { container } = render(<JsonHighlight text='{"k":"s","n":1,"b":true,"z":null}' />);
+  expect(container.querySelector(".tv-jk")).toHaveTextContent('"k"');
+  expect(container.querySelector(".tv-js")).toHaveTextContent('"s"');
+  expect(container.querySelector(".tv-jn")).toHaveTextContent("1");
+  expect(container.querySelector(".tv-jb")).toHaveTextContent("true");
+  expect(container.querySelector(".tv-jl")).toHaveTextContent("null");
+});
+```
+
+（`tv-jp` 是标点类，**不要为它写断言或抄成示例**：源实现里 `.tv-jp` 的独立文本节点只有 `,`，其余标点 span 的文本都以 `JSON.stringify(k)` 开头，没有稳定且干净的文本可断言。用 `container.querySelector` 而非 `getByText` 也是因为 `"s"` 与 `1` 会同时命中键与值两处。）
 
 再编辑 `Markdown.test.tsx`：用例「hover 按钮显示 Tooltip（自动换行）」（源文件 44-48 行）断言的是 antd Tooltip 的行为（`fireEvent.mouseEnter` + `findByRole("tooltip")`），CSS-only tooltip 没有 `role="tooltip"`、也不靠 hover 挂载 DOM，必然失败。改为断言承载属性与承载元素：
 
@@ -1032,6 +1046,8 @@ function Leaf({ v }: { v: unknown }): ReactNode {
 .tv-jl { color: var(--tv-json-null); }
 .tv-jp { color: var(--tv-json-punct); }
 ```
+
+**本段追加的 CSS 只含选择器与规则，不得新增、删除或重复声明任何 `--tv-*` 变量**：上面 `var()` 引用的 6 个 `--tv-json-*` 已由 Task 5 在 `src/style.css` 的三块变量中定义齐备（浅色根块第 46-51 行、`@media` 暗色块第 102-107 行、`[data-theme="dark"]` 块第 131-132 行），再声明一遍会让三块的变量集合出现重复键。
 
 Run: `npx vitest run src/components/ && npx tsc --noEmit`
 Expected: 全绿
