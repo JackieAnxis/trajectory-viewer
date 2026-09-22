@@ -344,7 +344,9 @@ test("加载完成后上报当前动作：全收起流报展开、追加含折�
   expect(onActionChange).toHaveBeenLastCalledWith("expand");
   const before = onActionChange.mock.calls.length;
 
-  // 追加一条含思考卡的消息（默认收起）→ effect 重新扫描，动作回到 expand
+  // 先批量全展开（直改 DOM 的 <details open>），再追加含思考卡的消息：
+  // 新卡默认收起 → scanAction 重新扫描得到 expand，末次上报是「变化后」的结果而非与之前同值
+  expect(ref.current?.toggleAllCards()).toBe("expand");
   rerender(
     <MessageStreamView
       {...viewProps({ msgs: [...first, m(2, "assistant", "好", { reasoning_content: "想想", reasoning_len: 2 })] })}
@@ -522,6 +524,23 @@ test("高亮落 DOM;quote 找不到 → onAnchorsReconciled 上报失效楼", ()
   expect(container.querySelector('mark.tv-anno-mark[data-anno-id="9"]')).toBeNull();
 });
 
+test("点击高亮 mark 触发 onMarkClick 代理：annoId 由 data-anno-id 转为数字", () => {
+  const onMarkClick = vi.fn();
+  const { container } = renderView({
+    msgs: [m(1, "user", "abcdefgh")], annotations: [mkAnn({})], onMarkClick,
+  });
+  const mark = container.querySelector('mark.tv-anno-mark[data-anno-id="9"]');
+  expect(mark).not.toBeNull();
+  fireEvent.click(mark!);
+  // dataset 取到的是字符串，代理须转成数字再交组合层（Number() 转换的承重点）
+  expect(onMarkClick).toHaveBeenCalledWith(9);
+
+  // 点击同一容器内的非 mark 元素（区块本身）不应触发代理
+  const calls = onMarkClick.mock.calls.length;
+  fireEvent.click(container.querySelector('[data-msg-idx="1"][data-region="content"]')!);
+  expect(onMarkClick.mock.calls.length).toBe(calls);
+});
+
 test("scrollToAnnotation 跨页续拉并定位闪烁", async () => {
   Element.prototype.scrollIntoView = vi.fn();        // jsdom 未实现
   const ann = mkAnn({ id: 7, msg_idx: 1, quote: "xyz", prefix: "目标段落 ", suffix: "" });
@@ -597,6 +616,22 @@ test("消息加载失败显示错误提示，点击重试回调宿主", () => {
   expect(container.querySelector(".tv-msg-error")).not.toBeNull();
   expect(screen.getByText(/消息加载失败/)).toBeInTheDocument();
   expect(screen.getByText(/boom/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "点击重试" }));
+  expect(onRetryMessages).toHaveBeenCalledTimes(1);
+});
+
+test("续拉失败时错误块与已加载消息共存，点击重试回调宿主", () => {
+  // 与首屏失败的区别：续拉失败时首页消息已在流内，错误块须与之共存而非替换整屏
+  const onRetryMessages = vi.fn();
+  const { container } = renderView({
+    msgs: [m(0, "user", "第一页消息")],
+    msgError: "加载更多失败: 网络错误",
+    onRetryMessages,
+  });
+  expect(container.querySelector(".tv-msg-error")).not.toBeNull();
+  expect(screen.getByText(/加载更多失败/)).toBeInTheDocument();
+  expect(screen.getByText(/网络错误/)).toBeInTheDocument();
+  expect(screen.getByText("第一页消息")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "点击重试" }));
   expect(onRetryMessages).toHaveBeenCalledTimes(1);
 });

@@ -25,8 +25,6 @@ import AnnotatePopover from "./AnnotatePopover";
 import { useNotify } from "../ui/notify";
 import { TvTooltip } from "../ui/TvTooltip";
 
-type Mode = "parsed" | "raw";
-
 /** content / 推理：若是 JSON 对象/数组则语法高亮，否则按 Markdown 渲染。 */
 function smartContent(text: string) {
   if (looksLikeJson(text)) return <JsonHighlight text={text} />;
