@@ -178,3 +178,13 @@
   background: var(--tv-toast-bg); color: var(--tv-toast-text);
   padding: 6px 14px; border-radius: 8px; font-size: 13px;
 }
+
+/* —— JSON 高亮（JsonHighlight） —— */
+.tv-json-highlight { margin: 0; font-size: 13px; line-height: 1.6; }
+.tv-json-highlight .tv-json-hl-line { white-space: pre-wrap; word-break: break-all; }
+.tv-jk { color: var(--tv-json-key); }
+.tv-js { color: var(--tv-json-string); }
+.tv-jn { color: var(--tv-json-number); }
+.tv-jb { color: var(--tv-json-boolean); }
+.tv-jl { color: var(--tv-json-null); }
+.tv-jp { color: var(--tv-json-punct); }
