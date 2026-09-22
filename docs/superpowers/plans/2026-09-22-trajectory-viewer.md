@@ -955,6 +955,18 @@ sed -i '' -E \
 
 再编辑 `JsonHighlight.test.tsx`：原断言内联 `style.color` 的用例改为断言类名——把形如 `expect(el).toHaveStyle({ color: ... })` 的 JSON 值颜色断言替换为 `expect(el).toHaveClass("tv-js")` / `"tv-jk"` / `"tv-jn"` / `"tv-jb"` / `"tv-jl"`（对应 string/key/number/boolean/null；测试里每个值类型一处断言即可）。
 
+再编辑 `Markdown.test.tsx`：用例「hover 按钮显示 Tooltip（自动换行）」（源文件 44-48 行）断言的是 antd Tooltip 的行为（`fireEvent.mouseEnter` + `findByRole("tooltip")`），CSS-only tooltip 没有 `role="tooltip"`、也不靠 hover 挂载 DOM，必然失败。改为断言承载属性与承载元素：
+
+```tsx
+test("按钮提示经 data-tip 承载（自动换行）", () => {
+  const { container } = render(<Markdown>{CODE_MD}</Markdown>);
+  const tip = container.querySelector(".tv-code-wrap-toggle")?.closest(".tv-tip");
+  expect(tip).toHaveAttribute("data-tip", "自动换行");
+});
+```
+
+（`WrapToggleButton` 的 Tooltip 换成 `TvTooltip` 后，`.tv-tip` 是 `.tv-code-wrap-toggle` 的包裹元素，故用 `closest(".tv-tip")` 取到它。本文件其余用例不受影响。）
+
 Run: `npx vitest run src/components/JsonHighlight.test.tsx src/components/Markdown.test.tsx`
 Expected: FAIL（组件不存在）
 
@@ -1524,6 +1536,8 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 - Consumes: `TvTooltip`（`../ui/TvTooltip`）
 - Produces: `AnnotatePopover({ rect: { left: number; top: number }; onSubmit: (body: string) => Promise<boolean>; onCancel: () => void })`（默认导出）
 
+> **本任务无 Tooltip 断言改造**：源 `AnnotatePopover.test.tsx` 全文不含任何 Tooltip / `role="tooltip"` 断言，源组件里唯一的 `<Tooltip title="Ctrl / ⌘ + Enter 发送">` 无测试覆盖。因此本任务只需把该 Tooltip 换成 `TvTooltip`（承载属性 `data-tip`），**不得**新增测试用例去断言它（新增断言属超出简报范围）。
+
 - [ ] **Step 1: 拷贝测试并改造（先失败）**
 
 ```bash
@@ -1745,6 +1759,8 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
   - `FoldAction = "expand" | "collapse"`
   - `MessageStreamViewHandle { toggleAllCards(): FoldAction | null; scrollToAnnotation(msgIdx: number, annoId: number): Promise<boolean> }`
   - `MessageStreamViewProps { mode: "parsed" | "raw"; msgs: Msg[]; msgError: string | null; onRetryMessages: () => void; loadMore: () => Promise<boolean>; loadedRef: MutableRefObject<number>; sentinelRef: RefObject<HTMLDivElement>; raw: unknown | null; rawError: string | null; renderRaw?: (raw: unknown) => ReactNode; delivery?: string[]; deliveryOpen: boolean; onToggleDelivery: () => void; annotations: Annotation[] | null; onCreateAnnotation?: (anchor: AnchorInput, body: string) => Promise<boolean>; onMarkClick: (annoId: number) => void; onAnchorsReconciled: (deadIds: number[]) => void; onActionChange?: (action: FoldAction) => void }`（默认导出 forwardRef 组件）
+
+> **源测试中的 weight 徽标提示无断言负担**：`MessageStream.test.tsx` 中 weight=0 徽标用例（源 289-296 行附近）的 Tooltip 注释下一行只断言 `.avatar-zero` 存在，**不查询 `role="tooltip"`**，因此 CSS-only 后仅需保证 `.tv-avatar-zero` 仍渲染即可，测试无需改造。
 
 - [ ] **Step 1: 拷贝源测试并改造为视图测试（先失败）**
 
