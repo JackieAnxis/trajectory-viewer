@@ -1,0 +1,180 @@
+/* trajectory-viewer 全部样式：tv- 前缀类名，颜色经 var(--tv-*) 引用。
+   接入：import "trajectory-viewer/style.css"；宿主可覆写 .tv-root 变量换肤。 */
+
+.tv-root {
+  /* —— 浅色（默认）—— */
+  --tv-primary: #020202;
+  --tv-secondary: #666666;
+  --tv-ink: #020202;
+  --tv-ink-secondary: #666666;
+  --tv-ink-tertiary: #999999;
+  --tv-dim: rgba(0, 0, 0, 0.45);
+  --tv-canvas: #f6f6f6;
+  --tv-surface: #ffffff;
+  --tv-surface-hover: #f9f9f9;
+  --tv-border: #e8e8e8;
+  --tv-border-strong: #d0d0d0;
+  --tv-accent: #2563eb;                /* 链接/头像/工具名/主按钮 */
+  --tv-accent-weak: rgba(37, 99, 235, 0.08);
+  --tv-danger: #dc2626;                /* 失败标记 */
+  --tv-danger-weak: rgba(229, 115, 115, 0.12);
+  --tv-success: #7cb342;
+  --tv-dead: #b26a00;                  /* 失效楼「原文已变更」 */
+  --tv-mark-bg: #ffe58f;               /* 划线高亮底色 */
+  --tv-mark-peak: #ffb020;             /* 闪烁峰值 */
+  --tv-flash-ring: rgba(255, 176, 32, 0.55);
+  --tv-code-bg: #f6f6f6;
+  --tv-tip-bg: rgba(0, 0, 0, 0.85);
+  --tv-tip-text: #ffffff;
+  --tv-toast-bg: rgba(0, 0, 0, 0.75);
+  --tv-toast-text: #ffffff;
+  --tv-on-accent: #ffffff;             /* 彩底上的文字/图标（头像、badge、主按钮） */
+  /* hljs token（源为手写 GitHub 亮色系） */
+  --tv-hljs-base: #24292e;
+  --tv-hljs-keyword: #d73a49;
+  --tv-hljs-title: #6f42c1;
+  --tv-hljs-attr: #005cc5;
+  --tv-hljs-string: #032f62;
+  --tv-hljs-builtin: #e36209;
+  --tv-hljs-comment: #6a737d;
+  --tv-hljs-name: #22863a;
+  --tv-hljs-addition: #22863a;
+  --tv-hljs-addition-bg: #f0fff4;
+  --tv-hljs-deletion: #b31d28;
+  --tv-hljs-deletion-bg: #ffeef0;
+  /* JSON 高亮（JsonHighlight） */
+  --tv-json-key: #0b5394;
+  --tv-json-string: #137333;
+  --tv-json-number: #b06000;
+  --tv-json-boolean: #a50e0e;
+  --tv-json-null: #999999;
+  --tv-json-punct: #1d1d1f;
+
+  color: var(--tv-ink);
+  background: var(--tv-canvas);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  min-width: 0;
+}
+
+/* 暗色：跟随系统（宿主未显式指定时） */
+@media (prefers-color-scheme: dark) {
+  .tv-root:not([data-theme="light"]) {
+    --tv-primary: #e6e6e6;
+    --tv-secondary: #a0a0a0;
+    --tv-ink: #e6e6e6;
+    --tv-ink-secondary: #a0a0a0;
+    --tv-ink-tertiary: #777777;
+    --tv-dim: rgba(255, 255, 255, 0.5);
+    --tv-canvas: #141414;
+    --tv-surface: #1e1e1e;
+    --tv-surface-hover: #262626;
+    --tv-border: #333333;
+    --tv-border-strong: #4a4a4a;
+    --tv-accent: #3b6fd4;
+    --tv-accent-weak: rgba(59, 111, 212, 0.18);
+    --tv-danger: #f87171;
+    --tv-danger-weak: rgba(248, 113, 113, 0.16);
+    --tv-success: #9ccc65;
+    --tv-dead: #d9a04a;
+    --tv-mark-bg: #8a6d1f;
+    --tv-mark-peak: #d9a02a;
+    --tv-flash-ring: rgba(217, 160, 42, 0.5);
+    --tv-code-bg: #1b1b1b;
+    --tv-tip-bg: rgba(255, 255, 255, 0.92);
+    --tv-tip-text: #111111;
+    --tv-toast-bg: rgba(255, 255, 255, 0.88);
+    --tv-toast-text: #111111;
+    --tv-on-accent: #ffffff;
+    --tv-hljs-base: #c9d1d9;
+    --tv-hljs-keyword: #ff7b72;
+    --tv-hljs-title: #d2a8ff;
+    --tv-hljs-attr: #79c0ff;
+    --tv-hljs-string: #a5d6ff;
+    --tv-hljs-builtin: #ffa657;
+    --tv-hljs-comment: #8b949e;
+    --tv-hljs-name: #7ee787;
+    --tv-hljs-addition: #7ee787;
+    --tv-hljs-addition-bg: rgba(46, 160, 67, 0.18);
+    --tv-hljs-deletion: #f85149;
+    --tv-hljs-deletion-bg: rgba(248, 81, 73, 0.18);
+    --tv-json-key: #79a8ff;
+    --tv-json-string: #7ee787;
+    --tv-json-number: #ffab70;
+    --tv-json-boolean: #ff9b9b;
+    --tv-json-null: #8b949e;
+    --tv-json-punct: #c9d1d9;
+  }
+}
+
+/* 暗色：宿主手动强制（优先级最高）——与媒体查询块保持同一组变量声明 */
+.tv-root[data-theme="dark"] {
+  /* 与上方 @media 块完全相同的变量声明（两处同步维护） */
+  --tv-primary: #e6e6e6; --tv-secondary: #a0a0a0; --tv-ink: #e6e6e6;
+  --tv-ink-secondary: #a0a0a0; --tv-ink-tertiary: #777777; --tv-dim: rgba(255, 255, 255, 0.5);
+  --tv-canvas: #141414; --tv-surface: #1e1e1e; --tv-surface-hover: #262626;
+  --tv-border: #333333; --tv-border-strong: #4a4a4a;
+  --tv-accent: #3b6fd4; --tv-accent-weak: rgba(59, 111, 212, 0.18);
+  --tv-danger: #f87171; --tv-danger-weak: rgba(248, 113, 113, 0.16);
+  --tv-success: #9ccc65; --tv-dead: #d9a04a;
+  --tv-mark-bg: #8a6d1f; --tv-mark-peak: #d9a02a; --tv-flash-ring: rgba(217, 160, 42, 0.5);
+  --tv-code-bg: #1b1b1b;
+  --tv-tip-bg: rgba(255, 255, 255, 0.92); --tv-tip-text: #111111;
+  --tv-toast-bg: rgba(255, 255, 255, 0.88); --tv-toast-text: #111111;
+  --tv-on-accent: #ffffff;
+  --tv-hljs-base: #c9d1d9; --tv-hljs-keyword: #ff7b72; --tv-hljs-title: #d2a8ff;
+  --tv-hljs-attr: #79c0ff; --tv-hljs-string: #a5d6ff; --tv-hljs-builtin: #ffa657;
+  --tv-hljs-comment: #8b949e; --tv-hljs-name: #7ee787;
+  --tv-hljs-addition: #7ee787; --tv-hljs-addition-bg: rgba(46, 160, 67, 0.18);
+  --tv-hljs-deletion: #f85149; --tv-hljs-deletion-bg: rgba(248, 81, 73, 0.18);
+  --tv-json-key: #79a8ff; --tv-json-string: #7ee787; --tv-json-number: #ffab70;
+  --tv-json-boolean: #ff9b9b; --tv-json-null: #8b949e; --tv-json-punct: #c9d1d9;
+}
+
+/* —— 小件 —— */
+
+.tv-tip { position: relative; display: inline-flex; }
+.tv-tip::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--tv-tip-bg); color: var(--tv-tip-text);
+  padding: 4px 8px; border-radius: 6px; font-size: 12px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity 0.12s;
+  z-index: 10;
+}
+.tv-tip:hover::after, .tv-tip:focus-within::after { opacity: 1; }
+
+.tv-segmented {
+  display: inline-flex; gap: 2px; padding: 2px;
+  background: var(--tv-accent-weak); border-radius: 8px;
+}
+.tv-segmented-item {
+  border: none; background: transparent; color: var(--tv-secondary);
+  padding: 3px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+}
+.tv-segmented-item.active { background: var(--tv-surface); color: var(--tv-ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+
+.tv-badge { position: relative; display: inline-flex; }
+.tv-badge-count {
+  position: absolute; top: -6px; right: -10px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--tv-danger); color: var(--tv-on-accent);
+  border-radius: 8px; font-size: 11px; line-height: 16px; text-align: center;
+}
+
+.tv-avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: var(--tv-on-accent); flex-shrink: 0; user-select: none;
+}
+
+.tv-confirming { color: var(--tv-danger) !important; }
+
+.tv-toast-host {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 6px; z-index: 1001;
+}
+.tv-toast {
+  background: var(--tv-toast-bg); color: var(--tv-toast-text);
+  padding: 6px 14px; border-radius: 8px; font-size: 13px;
+}
