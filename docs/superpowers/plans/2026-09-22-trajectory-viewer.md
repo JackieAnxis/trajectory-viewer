@@ -24,7 +24,7 @@
 - 分页常量 `PAGE = 300`；哨兵 `rootMargin: "200px"`；跨页定位上限 200 页；闪烁动画 1600ms
 - 每任务结束：`npx tsc --noEmit` 与 `npx vitest run` 全绿后 commit
 - **测试环境不开启 vitest globals**（`expect`/`test`/`afterEach` 一律显式 import）。**连带后果**：RTL 的自动清理靠探测全局 `afterEach` 才注册（`node_modules/@testing-library/react/dist/index.js`），globals 关闭时完全不注册，用例间 DOM 会累积、后续用例报 `Found multiple elements with role`。因此**凡含交互或多次 `render` 的测试文件，必须显式 `afterEach(cleanup)`**；源项目（`SRC/../vite.config.ts` 设 `globals: true`）无此负担，搬迁时不得省略该 import。
-- **测试交互一律用 `fireEvent`，禁止裸 `el.click()`**：React 18 并发根下，裸 `.click()` 走 React 自己的事件委托、落在 RTL 的 `act()` 包装之外，`setState` 的更新不会同步落到 DOM，紧随其后的断言必失败；同理 `vi.advanceTimersByTime()` 推进的定时器回调须包在 `act(() => { … })` 内。`fireEvent` / `userEvent` 由 RTL 的 `eventWrapper` 自动套 `act()`，是唯一可靠写法。（源项目因开了 globals 且多数用例只用 `fireEvent` 而未暴露此问题；本仓 Task 5 实现者已实测并逐条修正。）
+- **测试交互一律用 `fireEvent`，禁止裸 `el.click()`**：React 18 并发根下，裸 `.click()` 走 React 自己的事件委托、不经 RTL 的 `act()` 包装，而 React 18 并发根对非 `act` 来源的离散事件不保证同步 flush（实测：即便手动置 `IS_REACT_ACT_ENVIRONMENT = true` 仍不同步），`setState` 的更新不会同步落到 DOM，紧随其后的断言必失败；同理 `vi.advanceTimersByTime()` 推进的定时器回调须包在 `act(() => { … })` 内。`fireEvent` / `userEvent` 由 RTL 的 `eventWrapper` 自动套 `act()`，是唯一可靠写法。（源项目因开了 globals 且多数用例只用 `fireEvent` 而未暴露此问题；本仓 Task 5 实现者已实测并逐条修正。）
 
 ### 全局类名重命名表（搬迁代码统一适用）
 
