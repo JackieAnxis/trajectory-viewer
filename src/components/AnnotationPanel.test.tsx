@@ -254,6 +254,8 @@ test("删除确认级联文案:含回复的楼提示同时删除条数,无回复
   // 楼 1(含 2 条回复):确认态把按钮自身文本换成级联文案
   const card1 = container.querySelector<HTMLElement>('.tv-anno-card[data-tv-anno-card="1"]')!;
   fireEvent.click(within(card1).getByText("删除"));
+  // B/F-3（Ruling 79）：此处 waitFor 仅为「取元素」（确认态文案异步出现），
+  // 级联文案的验证实质由随后的 store.delete 断言承担
   const cascadeBtn = await waitFor(() =>
     screen.getByText("删除后将同时删除 2 条回复"));       // 确认态按钮文本即级联文案
   fireEvent.click(cascadeBtn);
@@ -316,6 +318,8 @@ test("回复删除:一级回复含子回复时级联文案按其二级计数,确
   // bob 的一级回复含 1 条子回复 → 行级确认文案计数为 1;卡片级为 3 条,二者可区分
   const r11 = screen.getByText("bob 的一级回复").closest<HTMLElement>(".tv-anno-reply")!;
   fireEvent.click(within(r11).getByText("删除"));
+  // B/F-3（Ruling 79）：此处 waitFor 仅为「取元素」，行级/卡片级文案的区分
+  // 实质由随后的 store.delete(11,'reply') 与 delete 仅调用一次两条断言承担
   const cascadeBtn = await waitFor(() =>
     screen.getByText("删除后将同时删除 1 条回复"));       // 行级级联文案,非卡片级的「3 条」
   fireEvent.click(cascadeBtn);
@@ -343,7 +347,10 @@ test("解决切换:标记解决与重新打开分别传 true/false,成功后 onC
 });
 
 test("写操作失败:notify 中文提示,成功回调不触发", async () => {
-  const { container, props, notify } = renderPanel([mkAnno({ id: 1, body: "原有正文" })]);
+  // B/F-2：楼带上 1 条一级回复，回复行的编辑/删除失败分支进同一条计数链
+  const { container, props, notify } = renderPanel([
+    mkAnno({ id: 1, body: "原有正文", replies: [mkReply({ id: 11, parent_id: null, author: "bob", body: "顶" })] }),
+  ]);
   // 点赞失败
   vi.mocked(props.store.setLike).mockRejectedValueOnce(new Error("boom"));
   fireEvent.click(container.querySelector("button.tv-anno-like")!);
@@ -356,17 +363,17 @@ test("写操作失败:notify 中文提示,成功回调不触发", async () => {
   fireEvent.click(screen.getByText("保存"));
   await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "保存失败"));
   expect(props.onChanged).not.toHaveBeenCalled();
-  // 删除失败(经行内二次确认)
+  // 删除失败(经行内二次确认；楼有 1 条回复 → 确认文案为级联形态)
   vi.mocked(props.store.delete).mockRejectedValueOnce(new Error("boom"));
   fireEvent.click(screen.getByText("删除"));
-  const confirmBtn = await waitFor(() => screen.getByText("确认删除？"));
+  const confirmBtn = await waitFor(() => screen.getByText("删除后将同时删除 1 条回复"));
   fireEvent.click(confirmBtn);
   await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "操作失败,请重试"));
   expect(props.onChanged).not.toHaveBeenCalled();
-  // 解决切换失败(文案与删除失败相同,改为验证请求已发起且不走成功回调)
+  // 解决切换失败(B/F-1)：补 notify 文案断言（原只验请求发起，MUT19 因文案零断言而存活）
   vi.mocked(props.store.setResolved).mockRejectedValueOnce(new Error("boom"));
   fireEvent.click(screen.getByText("标记解决"));
-  await waitFor(() => expect(props.store.setResolved).toHaveBeenCalledWith(1, true));
+  await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "操作失败,请重试"));
   expect(props.onChanged).not.toHaveBeenCalled();
   // 回复发送失败
   vi.mocked(props.store.reply).mockRejectedValueOnce(new Error("boom"));
@@ -374,8 +381,35 @@ test("写操作失败:notify 中文提示,成功回调不触发", async () => {
   fireEvent.click(screen.getByText("发送"));
   await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "发送失败,请重试"));
   expect(props.onChanged).not.toHaveBeenCalled();
-  // 五条失败路径各恰好通知一次(杀掉「某条失败路径漏通知」的变异)
-  expect(notify).toHaveBeenCalledTimes(5);
+  // B/F-2 新增两条：回复行的编辑失败 / 删除失败（展开回复后按 .tv-anno-reply 定域）
+  fireEvent.click(screen.getByText("查看 1 条回复"));
+  const r11 = screen.getByText("顶").closest<HTMLElement>(".tv-anno-reply")!;
+  vi.mocked(props.store.update).mockRejectedValueOnce(new Error("boom"));
+  fireEvent.click(within(r11).getByText("编辑"));
+  fireEvent.change(within(r11).getByDisplayValue("顶"), { target: { value: "顶新" } });
+  fireEvent.click(within(r11).getByText("保存"));
+  await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "保存失败"));
+  vi.mocked(props.store.delete).mockRejectedValueOnce(new Error("boom"));
+  fireEvent.click(within(r11).getByText("删除"));
+  const rConfirm = await waitFor(() => within(r11).getByText("确认删除？"));
+  fireEvent.click(rConfirm);
+  await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "操作失败,请重试"));
+  // 七条失败路径各恰好通知一次(杀掉「某条失败路径漏通知」的变异；F-2 两条并入后 5→7)
+  expect(notify).toHaveBeenCalledTimes(7);
+});
+
+// B/F-4（Ruling 79）：回复行编辑成功路径第三参 "reply" 此前零断言——
+// 若误传 "annotation" 会写错表且无任何用例会红；与楼级 (1,"新","annotation") 断言互补
+test("回复行编辑成功:store.update 收行 id 与第三参 reply,成功回调触发", async () => {
+  const anno = mkAnno({ id: 1, author: "bob", replies: [mkReply({ id: 11, parent_id: null, author: "bob", body: "楼中正文" })] });
+  const { props } = renderPanel([anno]);
+  fireEvent.click(screen.getByText("查看 1 条回复"));
+  const r11 = screen.getByText("楼中正文").closest<HTMLElement>(".tv-anno-reply")!;
+  fireEvent.click(within(r11).getByText("编辑"));
+  fireEvent.change(within(r11).getByDisplayValue("楼中正文"), { target: { value: "新" } });
+  fireEvent.click(within(r11).getByText("保存"));
+  await waitFor(() => expect(props.store.update).toHaveBeenCalledWith(11, "新", "reply"));
+  expect(props.onChanged).toHaveBeenCalled();
 });
 
 // ---- 最终 ONE fix dispatch：K-2 独立使用的通知注入 / 锚点作用域 / 文案 ----

@@ -63,3 +63,11 @@ test("颜色经 CSS 类名承载：键/字符串/数字/布尔/null 各归其类
   expect(container.querySelector(".tv-jb")).toHaveTextContent("true");
   expect(container.querySelector(".tv-jl")).toHaveTextContent("null");
 });
+
+// E-M1（Ruling 22）：标点必须由 .tv-jp 包裹是样式契约——arrayContaining 锁语义
+// （标点被包裹）而非具体序列，出现顺序/数量允许实现微调
+test("tv-jp 标点包裹：花括号与键值分隔符各归其 span", () => {
+  const { container } = render(<JsonHighlight text='{"k":1}' />);
+  const toks = [...container.querySelectorAll(".tv-jp")].map((el) => el.textContent);
+  expect(toks).toEqual(expect.arrayContaining(["{", "}", ": "]));
+});

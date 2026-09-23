@@ -9,7 +9,7 @@ interface WrapToggleButtonProps {
   onToggle: () => void;
 }
 
-/** 换行切换按钮（Markdown 代码块与 Monaco JSON 视图共用）：图标表达当前状态，Tooltip/aria 提示当前状态 */
+/** 换行切换按钮（Markdown 代码块用）：图标表达当前状态，Tooltip/aria 提示当前状态 */
 export default function WrapToggleButton({ wrapped, onToggle }: WrapToggleButtonProps) {
   const label = wrapped ? "自动换行" : "不自动换行";
   return (

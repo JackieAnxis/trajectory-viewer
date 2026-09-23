@@ -194,3 +194,45 @@ test("K-4 非 Error 抛出：加载更多失败文本含原串且不含 undefine
   expect(latest.msgError).toContain("boom");
   expect(latest.msgError).not.toContain("undefined");
 });
+
+// ---- 最终 ONE fix dispatch：C 组跨任务待办（Ruling 57 + Minor-3）----
+
+// C1（Ruling 57）：loadMore 失败链此前零覆盖（承重点 useMessageStreamData 的 catch 分支）。
+// 一条链两端都测：失败 → msgError 置「加载更多失败」；哨兵再次可见且成功 → 追加并清空 msgError。
+test("C loadMore 失败链：失败置错，重试成功追加并清空 msgError", async () => {
+  let failSecond = true;
+  const fetchMessages = vi.fn(async (q: { from: number; limit: number }) => {
+    if (q.from === 0) return pageOf([m(0, "user", "问")], 0, true);
+    if (failSecond) { failSecond = false; throw new Error("断线"); }
+    return pageOf([m(1, "assistant", "答")], 1, false);
+  });
+  render(<StreamHarness ds={dsOf(fetchMessages)} />);
+  await waitFor(() => expect(latest.msgs).toHaveLength(1));
+  showSentinel();
+  await waitFor(() => expect(latest.msgError).toContain("加载更多失败"));
+  expect(latest.msgError).toContain("断线");
+  expect(latest.hasMore).toBe(true);                     // 失败不掐分页门：仍可重试
+  showSentinel();                                         // 再次可见：这次成功
+  await waitFor(() => expect(latest.msgs).toHaveLength(2));
+  expect(latest.msgError).toBeNull();                     // 成功端清空错误文本
+});
+
+// C2（Minor-3）：raw 失败后 active 切走再切回必须重拉——错误态不缓存。
+// 现有用例只测了失败置错与 active 门控，「失败后重试」这一支零覆盖。
+test("C raw 失败后切走再切回：fetchRaw 第二次被调用且成功清错", async () => {
+  let fail = true;
+  const fetchRaw = vi.fn(async () => {
+    if (fail) throw new Error("坏");
+    return { ok: 1 };
+  });
+  const ds = dsOf(async () => pageOf([]), fetchRaw);
+  const { rerender } = render(<RawHarness ds={ds} active={true} />);
+  await waitFor(() => expect(rawLatest.rawError).toBe("坏"));
+  expect(fetchRaw).toHaveBeenCalledTimes(1);
+  rerender(<RawHarness ds={ds} active={false} />);        // 切走（回消息视图）
+  fail = false;
+  rerender(<RawHarness ds={ds} active={true} />);         // 切回 → 自动重试
+  expect(fetchRaw).toHaveBeenCalledTimes(2);              // 失败态未被缓存短路
+  await waitFor(() => expect(rawLatest.raw).toEqual({ ok: 1 }));
+  expect(rawLatest.rawError).toBeNull();
+});

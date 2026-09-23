@@ -385,3 +385,150 @@ test("K-2 主组件内面板失败：root 内 toast host 恰好一个（防双 h
   await waitFor(() => expect(document.querySelector(".tv-toast-host")).not.toBeNull());
   expect(document.querySelectorAll(".tv-toast-host")).toHaveLength(1);
 });
+
+// ---- 最终 ONE fix dispatch：D 组组合层残余覆盖缺口（Ruling 96，控制器 14 次定点变异 ★存活项）----
+
+// M15：className 透传不得吞掉 tv-root（样式作用域的根载体）
+test("D-M15 className 透传：根节点同时含 tv-x 与 tv-root", () => {
+  const { container } = render(<TrajectoryViewer dataSource={dsOf([])} className="tv-x" />);
+  const root = container.firstElementChild as HTMLElement;
+  expect(root.classList.contains("tv-x")).toBe(true);
+  expect(root.classList.contains("tv-root")).toBe(true);
+});
+
+// M32：raw 视图无内置折叠块 → 工具栏折叠按钮必须禁用；切回恢复
+test("D-M32 折叠按钮 disabled 门控：JSON 视图禁用，切回轨迹恢复", async () => {
+  render(<TrajectoryViewer dataSource={dsOf([m(0, "user", "你好")], { a: 1 })} />);
+  const fold = await screen.findByLabelText("展开");
+  expect(fold).not.toBeDisabled();
+  fireEvent.click(screen.getByRole("tab", { name: "JSON" }));
+  expect(fold).toBeDisabled();
+  fireEvent.click(screen.getByRole("tab", { name: "轨迹" }));
+  expect(fold).not.toBeDisabled();
+});
+
+// M33：foldLabel 语义翻转 + aria-label 与 data-tip 同步（两变异：反转 / 恒定均杀）。
+// 消息用 system 角色：普通 user/assistant 气泡不是 <details>，scanAction 恒 null 无从翻转
+test("D-M33 折叠动作翻转后 aria-label 与 data-tip 同步变化", async () => {
+  render(<TrajectoryViewer dataSource={dsOf([m(0, "system", "你好")])} />);
+  // 初始：卡片全收起 → 下一次动作是「展开」
+  const fold = await screen.findByLabelText("展开");
+  expect(fold.closest(".tv-tip")).toHaveAttribute("data-tip", "展开");
+  fireEvent.click(fold);                                  // 全部展开 → 下一次动作翻转为「收起」
+  await waitFor(() => expect(screen.getByLabelText("收起")).toBeTruthy());
+  expect(screen.getByLabelText("收起").closest(".tv-tip"))
+    .toHaveAttribute("data-tip", "收起");
+});
+
+// M31：抽屉内部收到真实路径列表（此前只断言抽屉存在，delivery 被换成 [] 无人红）
+test("D-M31 交付物抽屉列出传入路径的文件名", async () => {
+  render(<TrajectoryViewer dataSource={dsOf([])} delivery={["a.md", "sub/b.html"]} />);
+  fireEvent.click(await screen.findByLabelText("文件夹"));
+  await waitFor(() => {
+    const names = [...document.querySelectorAll(".tv-delivery-drawer-open .tv-delivery-name")]
+      .map((el) => el.textContent);
+    // 顶层文件行 + 顶层目录名（子级默认折叠）；delivery=[] 变异会使抽屉整体不渲染 → 必红
+    expect(names).toContain("a.md");
+    expect(names).toContain("sub");
+  });
+});
+
+// M36：视图重锚失败 → onAnchorsReconciled → reportDead → 面板卡片置灰（接线断线此前零暴露）
+test("D-M36 锚点失效上报链：重锚未命中的楼在面板显示「原文已变更」", async () => {
+  render(
+    <TrajectoryViewer dataSource={dsOf([m(0, "user", "abcdefgh")])}
+                      annotationStore={storeOf([mkAnn({ quote: "不存在" })])} />,
+  );
+  // 区块在但 quote 找不到 → dead 上报；断言落在面板卡片的失效标记上
+  await waitFor(() => expect(
+    document.querySelector('.tv-anno-card[data-tv-anno-card="7"] .tv-anno-dead'),
+  ).not.toBeNull());
+  // 引用块本身仍渲染（失效楼不吞文本）
+  expect(document.querySelector('.tv-anno-card[data-tv-anno-card="7"] .tv-anno-quote'))
+    .toHaveTextContent("不存在");
+});
+
+// M22：失效楼点引用块 → 直接提示「原文已变更」，不得走视图定位（早返回）
+test("D-M22 失效楼点引用块：notify 原文已变更且不走 scrollToAnnotation", async () => {
+  const onNotify = vi.fn();
+  render(
+    <TrajectoryViewer dataSource={dsOf([m(0, "user", "abcdefgh")])}
+                      annotationStore={storeOf([mkAnn({ quote: "不存在" })])}
+                      onNotify={onNotify} />,
+  );
+  const card = await waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.tv-anno-card[data-tv-anno-card="7"] .tv-anno-dead');
+    expect(el).not.toBeNull();
+    return el!.closest<HTMLElement>(".tv-anno-card")!;
+  });
+  fireEvent.click(card.querySelector(".tv-anno-quote")!);
+  expect(onNotify).toHaveBeenCalledWith("info", "原文已变更,无法定位");
+  // 恰一次：若失效楼仍走了 scrollToAnnotation，msg 无 mark 会以 false 结束，
+  // 再补一条「无法定位原文(可能已变更或尚未加载)」——第二次调用即早返回被摘的证据
+  expect(onNotify).toHaveBeenCalledTimes(1);
+});
+
+// M12：换记录复位的三个独立后果逐条断言（同一 effect 三行，删任一行必红；③见注释的防御性说明）
+test("D-M12 换记录：开着的批注面板与交付物抽屉复位关闭，面板无闪烁残留", async () => {
+  Element.prototype.scrollIntoView = vi.fn();   // jsdom 未实现；面板定位 effect 与视图定位共用
+  const store = storeOf([mkAnn({ quote: "cde", prefix: "ab", suffix: "fgh" })]);
+  const mk = () => dsOf([m(0, "user", "abcdefgh")]);   // 三份同文本记录，只差 identity
+  const ds1 = mk(); const ds2 = mk(); const ds3 = mk();
+  const { rerender } = render(
+    <TrajectoryViewer dataSource={ds1} delivery={["a.md"]} annotationStore={store} />,
+  );
+  const mark1 = await waitFor(() => {
+    const el = document.querySelector("mark.tv-anno-mark[data-anno-id='7']");
+    expect(el).not.toBeNull();
+    return el as HTMLElement;
+  });
+  // 点高亮：面板开 + focusId 定位闪烁（为 ③ 制造闪烁窗口）
+  fireEvent.click(mark1);
+  expect(document.querySelector(".tv-anno-panel-open")).not.toBeNull();
+  await waitFor(() => expect(document.querySelector(".tv-anno-card-flash")).not.toBeNull());
+
+  // ② 换记录：批注面板由开到关（删 setAnnoOpen(false) → 此条红）
+  rerender(<TrajectoryViewer dataSource={ds2} delivery={["a.md"]} annotationStore={store} />);
+  await waitFor(() => expect(document.querySelector("mark.tv-anno-mark[data-anno-id='7']")).not.toBeNull());
+  expect(document.querySelector(".tv-anno-panel-open")).toBeNull();
+  expect(screen.getByLabelText("批注与讨论").getAttribute("aria-expanded")).toBe("false");
+  // ③ focusId 复位：换记录后面板不再有闪烁卡片。
+  // 注：focusId 在面板定位成功时会被 onFocusConsumed 即时消费，「不置 null」无法经公开
+  // API 路径观测——此断言为防御性固化（控制器 M12c 变异不可杀，已在 dispatch 报告记录），
+  // 锁定的是「闪烁卡片不跨记录存活」这一用户可见行为。
+  expect(document.querySelector(".tv-anno-card-flash")).toBeNull();
+
+  // ① 换记录：开着的交付物抽屉由开到关（删 setDeliveryOpen(false) → 此条红）
+  fireEvent.click(screen.getByLabelText("文件夹"));
+  expect(document.querySelector(".tv-delivery-drawer-open")).not.toBeNull();
+  rerender(<TrajectoryViewer dataSource={ds3} delivery={["a.md"]} annotationStore={store} />);
+  await waitFor(() => expect(document.querySelector("mark.tv-anno-mark[data-anno-id='7']")).not.toBeNull());
+  expect(document.querySelector(".tv-delivery-drawer-open")).toBeNull();
+  expect(screen.getByLabelText("文件夹").getAttribute("aria-expanded")).toBe("false");
+});
+
+// M35：视图向组合层上报「下一次批量动作」的链路（onActionChange 断线此前全绿）
+test("D-M35 视图上报折叠动作：定位展开卡片后换页触发重扫，工具栏翻转「收起」", async () => {
+  Element.prototype.scrollIntoView = vi.fn();   // 视图定位 effect 需要
+  const ref = createRef<TrajectoryViewerHandle>();
+  const fetchMessages = vi.fn(async (q: { from: number; limit: number }) =>
+    q.from === 0
+      // system 角色 → syscard <details>（默认收起），mark 落在卡体内，定位 effect 会把它打开
+      ? pageOf([m(0, "system", "abcdefgh")], 0, true)
+      : pageOf([], 1, false));                  // 空页仅作 msgs 引用变化的扳机（K-1 止损随后掐 hasMore）
+  const ds: TrajectoryDataSource = { fetchMessages, fetchRaw: async () => ({}) };
+  render(
+    <TrajectoryViewer ref={ref} dataSource={ds}
+                      annotationStore={storeOf([mkAnn({ quote: "cde", prefix: "ab", suffix: "fgh" })])} />,
+  );
+  await waitFor(() => expect(document.querySelector("mark.tv-anno-mark[data-anno-id='7']")).not.toBeNull());
+  // 跨页定位会把目标卡片的 <details> 自动展开（视图定位 effect）
+  await expect(ref.current!.scrollToAnnotation(0, 7)).resolves.toBe(true);
+  await waitFor(() => expect(document.querySelector("mark.tv-anno-flash")).not.toBeNull());
+  expect(screen.getByLabelText("展开")).toBeTruthy();       // 展开前：下一次动作是「展开」
+  // 哨兵续拉（成功但空页）→ msgs 引用变化 → 视图重扫：唯一的卡已展开 → 上报「collapse」
+  const io = MockIO.instances[MockIO.instances.length - 1];
+  io.show();
+  await waitFor(() => expect(screen.getByLabelText("收起")).toBeTruthy());
+  // onActionChange 断线（换 undefined）时 foldAction 停在初值 → 此步超时红
+});

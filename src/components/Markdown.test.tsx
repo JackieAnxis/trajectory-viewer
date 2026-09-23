@@ -98,3 +98,10 @@ test("未标注语言的代码块不高亮且不报错", () => {
   // 未指定语言时 rehype-highlight 不做高亮（detect 关闭）
   expect(block?.querySelector("code.hljs")).toBeNull();
 });
+
+// E-m5（Ruling 22）：.tv-markdown 容器类是 Task 14 样式抽取的契约锚——
+// style.css 里全部 .tv-markdown 规则依赖它存在，类名一改样式全失
+test("根容器承载 .tv-markdown 类名", () => {
+  const { container } = render(<Markdown>hello</Markdown>);
+  expect(container.querySelector(".tv-markdown")).not.toBeNull();
+});
