@@ -30,8 +30,9 @@ function dsOf(msgs: Msg[], raw: unknown = {}): TrajectoryDataSource {
     fetchRaw: vi.fn(async () => raw),
   };
 }
-function storeOf(list: Annotation[] = []): AnnotationStore {
-  return {
+/** 评论存储桩：默认实现全成功；over 覆盖单个方法（失败路径用例用） */
+function storeOf(list: Annotation[] = [], over: Partial<AnnotationStore> = {}): AnnotationStore {
+  const store: AnnotationStore = {
     list: vi.fn(async () => list),
     create: vi.fn(async () => ({})),
     reply: vi.fn(async () => ({})),
@@ -40,6 +41,21 @@ function storeOf(list: Annotation[] = []): AnnotationStore {
     setResolved: vi.fn(async () => ({})),
     setLike: vi.fn(async () => ({ likeCount: 1, likedByMe: true })),
   };
+  return Object.assign(store, over);
+}
+
+/** 批注楼桩：缺省字段与 store 形态对齐 */
+function mkAnn(over: Partial<Annotation> = {}): Annotation {
+  return {
+    id: 7, msg_idx: 0, region: "content", sub: null, quote: "你好", prefix: "", suffix: "",
+    author: "alice", body: "楼", resolved: 0, resolved_by: null, resolved_at: null,
+    created_at: 1, updated_at: 1, like_count: 0, liked_by_me: false, replies: [], ...over,
+  };
+}
+
+/** 取 mock 的调用次数：接口类型不暴露 vi.fn 的 mock 字段，断言时统一经此换算 */
+function callsOf(fn: unknown): number {
+  return (fn as { mock: { calls: unknown[] } }).mock.calls.length;
 }
 
 test("消息流渲染 + 工具栏切换 JSON 视图（默认 JsonHighlight）", async () => {
@@ -75,16 +91,14 @@ test("annotationStore 缺省：评论区入口不出现", async () => {
 });
 
 test("annotationStore 在：入口徽标显示未解决数，点击开面板", async () => {
-  const a: Annotation = {
-    id: 7, msg_idx: 0, region: "content", sub: null, quote: "q", prefix: "", suffix: "",
-    author: "alice", body: "楼", resolved: 0, resolved_by: null, resolved_at: null,
-    created_at: 1, updated_at: 1, like_count: 0, liked_by_me: false, replies: [],
-  };
-  render(<TrajectoryViewer dataSource={dsOf([])} annotationStore={storeOf([a])}
+  render(<TrajectoryViewer dataSource={dsOf([])} annotationStore={storeOf([mkAnn()])}
                          currentUser={{ name: "bob", isAdmin: true }} />);
   await waitFor(() => expect(document.querySelector(".tv-badge-count")).toHaveTextContent("1"));
   fireEvent.click(screen.getByLabelText("批注与讨论"));
   await screen.findByText("楼");
+  // Minor-1：可见提示文案（TvTooltip 的 data-tip，不参与 accessible name）也一并锁住
+  expect(document.querySelector(".tv-anno-panel-trigger")!.closest(".tv-tip")!
+    .getAttribute("data-tip")).toBe("批注与讨论");
 });
 
 test("toolbar=false 时不渲染工具栏", () => {
@@ -92,11 +106,18 @@ test("toolbar=false 时不渲染工具栏", () => {
   expect(screen.queryByRole("tablist")).toBeNull();
 });
 
-test("ref.scrollToAnnotation 透传视图跨页定位（无此消息返回 false）", async () => {
+test("ref.scrollToAnnotation 透传视图跨页定位（命中 true / 无此消息 false）", async () => {
   const ref = createRef<TrajectoryViewerHandle>();
-  render(<TrajectoryViewer ref={ref} dataSource={dsOf([])} />);
-  await waitFor(() => expect(ref.current).not.toBeNull());
+  const { rerender } = render(<TrajectoryViewer ref={ref} dataSource={dsOf([m(0, "user", "你好")])} />);
+  await screen.findByText("你好");
+  const handle = ref.current;                          // 捕获句柄：若透传被换成恒 false 的桩，下面必红
+  await expect(handle!.scrollToAnnotation(0, 1)).resolves.toBe(true);   // 正向：msgIdx 0 已加载
+
+  // 反向：dsOf 的 has_more 恒 false，续拉即止 → 全量加载后仍无此消息
+  rerender(<TrajectoryViewer ref={ref} dataSource={dsOf([])} />);
   await expect(ref.current!.scrollToAnnotation(99, 1)).resolves.toBe(false);
+  // 空依赖数组的 useImperativeHandle：句柄对象跨换记录保持同一 identity（附页 §4.3 第 2 条）
+  expect(ref.current).toBe(handle);
 });
 
 // ---- 换记录复位本地态（承 Task 11 评审 Major-3） ----
@@ -154,4 +175,154 @@ test("换记录（dataSource identity 变化）：消息视图 remount，未提�
   await screen.findByText("记录二");
   // 承重断言：没有 key={recordKey} 时，浮层会带着旧记录的锚点五元组存活下来
   expect(screen.queryByRole("button", { name: /评注/ })).toBeNull();
+});
+
+// ---- 修复轮 R=1 补齐的覆盖缺口（评审 Major-1 ~ Major-4 / Minor-1 ~ Minor-2） ----
+
+// Major-1：双面板互斥。DeliveryDrawer 与 AnnotationPanel 都是「常驻 DOM + open class」，
+// 故以 open class 与触发按钮的 aria-expanded 双路断言（评审探针已实测二者可测）。
+test("双面板互斥：开其一必收另一（正反各一次）", async () => {
+  render(
+    <TrajectoryViewer dataSource={dsOf([m(0, "user", "你好")])} delivery={["a.md"]}
+                      annotationStore={storeOf([])} />,
+  );
+  await screen.findByText("你好");
+  const drawerOpen = () => document.querySelector(".tv-delivery-drawer-open") !== null;
+  const panelOpen = () => document.querySelector(".tv-anno-panel-open") !== null;
+  const drawerTrigger = () => screen.getByLabelText("文件夹");
+  const annoTrigger = () => screen.getByLabelText("批注与讨论");
+  expect(drawerOpen()).toBe(false);
+  expect(panelOpen()).toBe(false);
+
+  // ① 先开交付物抽屉
+  fireEvent.click(drawerTrigger());
+  expect(drawerOpen()).toBe(true);
+  expect(drawerTrigger().getAttribute("aria-expanded")).toBe("true");
+  expect(panelOpen()).toBe(false);
+
+  // ② 再开批注面板 → 抽屉必须被收起（toggleAnno 的 setDeliveryOpen(false) 承重）
+  fireEvent.click(annoTrigger());
+  expect(panelOpen()).toBe(true);
+  expect(annoTrigger().getAttribute("aria-expanded")).toBe("true");
+  expect(drawerOpen()).toBe(false);
+  expect(drawerTrigger().getAttribute("aria-expanded")).toBe("false");
+
+  // ③ 再开交付物抽屉 → 批注面板必须被收起（toggleDelivery 的 setAnnoOpen(false) 承重）
+  fireEvent.click(drawerTrigger());
+  expect(drawerOpen()).toBe(true);
+  expect(drawerTrigger().getAttribute("aria-expanded")).toBe("true");
+  expect(panelOpen()).toBe(false);
+  expect(annoTrigger().getAttribute("aria-expanded")).toBe("false");
+});
+
+// Major-2：组合层对视图的回调接线。
+// 注意与 MessageStreamView.test.tsx 的分工：那里覆盖视图层 onMarkClick 本身，
+// 这里覆盖的是组合层把 handleMarkClick 接上去这一段（开面板 / 关抽屉 / 设 focusId 三件事）。
+test("点高亮 mark：组合层接上 handleMarkClick —— 开批注面板、关交付物抽屉、设定位目标", async () => {
+  const { container } = render(
+    <TrajectoryViewer dataSource={dsOf([m(0, "user", "abcdefgh")])} delivery={["a.md"]}
+                      annotationStore={storeOf([mkAnn({ quote: "cde", prefix: "ab", suffix: "fgh" })])} />,
+  );
+  // 不能 findByText("abcdefgh")：高亮把文本切成 ab / cde / fgh 三个节点，
+  // RTL 只拼接直接文本子节点（得 "abfgh"），故直接等 mark 出现
+  const mark = await waitFor(() => {
+    const el = container.querySelector<HTMLElement>('mark.tv-anno-mark[data-anno-id="7"]');
+    expect(el).not.toBeNull();
+    return el!;
+  });
+  // 先开抽屉：点高亮应把它关掉（两面板互斥）
+  fireEvent.click(screen.getByLabelText("文件夹"));
+  expect(document.querySelector(".tv-delivery-drawer-open")).not.toBeNull();
+
+  fireEvent.click(mark);
+  // ① 面板被打开
+  expect(document.querySelector(".tv-anno-panel-open")).not.toBeNull();
+  // ② 抽屉被关掉
+  expect(document.querySelector(".tv-delivery-drawer-open")).toBeNull();
+  // ③ focusId 被设为目标楼（面板定位闪烁 effect 消费它）
+  await waitFor(() => expect(
+    document.querySelector('.tv-anno-card[data-tv-anno-card="7"]')!.classList.contains("tv-anno-card-flash"),
+  ).toBe(true));
+});
+
+// Major-2：onChanged 接线（面板写操作成功后组合层重拉评论列表）
+test("面板写操作成功后触发组合层重拉：onChanged → store.list 再次调用", async () => {
+  const store = storeOf([mkAnn({ author: "alice" })]);
+  render(<TrajectoryViewer dataSource={dsOf([])} annotationStore={store}
+                           currentUser={{ name: "alice" }} />);
+  await waitFor(() => expect(document.querySelector(".tv-badge-count")).not.toBeNull());
+  fireEvent.click(screen.getByLabelText("批注与讨论"));
+  await screen.findByText("楼");
+  const before = callsOf(store.list);
+
+  fireEvent.click(screen.getByRole("button", { name: "标记解决" }));
+  await waitFor(() => expect(callsOf(store.list)).toBeGreaterThan(before));
+  expect(callsOf(store.setResolved)).toBe(1);
+});
+
+// Major-2：onLike 接线（点赞后组合层本地增量，不重拉）
+test("面板点赞触发组合层本地增量：onLike → applyLike 把 like_count 置为响应值", async () => {
+  const store = storeOf([mkAnn({ author: "alice", like_count: 3, liked_by_me: false })]);
+  render(<TrajectoryViewer dataSource={dsOf([])} annotationStore={store}
+                           currentUser={{ name: "alice" }} />);
+  await waitFor(() => expect(document.querySelector(".tv-badge-count")).not.toBeNull());
+  fireEvent.click(screen.getByLabelText("批注与讨论"));
+  const like = await screen.findByTitle("点赞");
+  expect(like).toHaveTextContent("3");
+  const before = callsOf(store.list);
+
+  fireEvent.click(like);
+  // storeOf 的 setLike 桩返回 { likeCount: 1, likedByMe: true }：UI 必须变成 1（applyLike 生效）
+  await waitFor(() => expect(screen.getByTitle("点赞")).toHaveTextContent("1"));
+  expect(callsOf(store.setLike)).toBe(1);
+  expect(callsOf(store.list)).toBe(before);          // 点赞走本地增量，不重拉
+});
+
+// Major-3：handleCreateAnnotation 成功路径（store.create 被调用 + annos.reload() 触发重拉）
+test("划线建楼成功：store.create 被调用，且组合层重拉评论列表", async () => {
+  const store = storeOf([]);
+  const { container } = render(<TrajectoryViewer dataSource={dsOf([m(0, "user", "abcdefgh")])}
+                                                 annotationStore={store} />);
+  await screen.findByText("abcdefgh");
+  await waitFor(() => expect(callsOf(store.list)).toBeGreaterThan(0));   // 首拉完成
+  const before = callsOf(store.list);
+
+  const block = container.querySelector('[data-msg-idx="0"][data-region="content"]')!;
+  selectRange(block, 2, 5);                          // 选中「cde」
+  fireEvent.mouseUp(block);
+  fireEvent.click(await screen.findByRole("button", { name: /评注/ }));
+  fireEvent.change(screen.getByPlaceholderText("写下你的评注…"), { target: { value: "疑问" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+  await waitFor(() => expect(callsOf(store.create)).toBe(1));
+  expect(callsOf(store.list)).toBeGreaterThan(before);   // 证明 annos.reload() 被调用
+  // 成功后浮层关闭（返回值 true 被视图消费）
+  await waitFor(() => expect(screen.queryByRole("button", { name: /评注/ })).toBeNull());
+});
+
+// Major-3：handleCreateAnnotation 失败路径（返回 false → 视图保留草稿）
+test("划线建楼失败：组合层返回 false（视图据此保留草稿）并提示错误", async () => {
+  const onNotify = vi.fn();
+  const store = storeOf([], { create: vi.fn(async () => { throw new Error("x"); }) });
+  const { container } = render(<TrajectoryViewer dataSource={dsOf([m(0, "user", "abcdefgh")])}
+                                                 annotationStore={store} onNotify={onNotify} />);
+  await screen.findByText("abcdefgh");
+  const block = container.querySelector('[data-msg-idx="0"][data-region="content"]')!;
+  selectRange(block, 2, 5);
+  fireEvent.mouseUp(block);
+  fireEvent.click(await screen.findByRole("button", { name: /评注/ }));
+  fireEvent.change(screen.getByPlaceholderText("写下你的评注…"), { target: { value: "疑问" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+  await waitFor(() => expect(onNotify).toHaveBeenCalledWith("error", "评注发布失败: x"));
+  // 返回 false：浮层仍在（草稿不丢）
+  expect(screen.getByPlaceholderText("写下你的评注…")).toHaveValue("疑问");
+});
+
+// Minor-2：ref 正向透传（真的调到视图并返回 true）
+test("ref.scrollToAnnotation 正向透传：目标消息已加载时返回 true", async () => {
+  const ref = createRef<TrajectoryViewerHandle>();
+  render(<TrajectoryViewer ref={ref} dataSource={dsOf([m(0, "user", "你好")])} />);
+  await screen.findByText("你好");
+  await expect(ref.current!.scrollToAnnotation(0, 1)).resolves.toBe(true);
 });
