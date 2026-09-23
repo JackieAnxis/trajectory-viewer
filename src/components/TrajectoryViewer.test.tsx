@@ -326,3 +326,46 @@ test("ref.scrollToAnnotation 正向透传：目标消息已加载时返回 true"
   await screen.findByText("你好");
   await expect(ref.current!.scrollToAnnotation(0, 1)).resolves.toBe(true);
 });
+
+// ---- 最终 ONE fix dispatch：H-2 theme 契约 + H-11 toast 锚点 ----
+
+// H-2：theme prop 三态。③ 是这条用例的全部价值——守住「缺省不写属性」，
+// 若有人把默认值改成 "light"，:not([data-theme="light"]) 永不命中、系统暗色被杀死，此条必红
+test("theme prop：dark/light 落在根元素 data-theme；缺省时属性不存在（跟随系统）", () => {
+  const { container, unmount } = render(<TrajectoryViewer dataSource={dsOf([])} theme="dark" />);
+  expect(container.querySelector(".tv-root")!.getAttribute("data-theme")).toBe("dark");
+  unmount();
+
+  const r2 = render(<TrajectoryViewer dataSource={dsOf([])} theme="light" />);
+  expect(r2.container.querySelector(".tv-root")!.getAttribute("data-theme")).toBe("light");
+  r2.unmount();
+
+  const r3 = render(<TrajectoryViewer dataSource={dsOf([])} />);
+  const root3 = r3.container.querySelector(".tv-root")!;
+  // 属性根本不存在，而非 "" 或 "undefined"
+  expect(root3.hasAttribute("data-theme")).toBe(false);
+});
+
+// H-11a：内置 toast host 必须锚在 .tv-root 内部（NotifyProvider 移位承重）
+// 堆叠上下文本身（isolation）jsdom 测不了——已知盲区，暗色目视归控制器点验
+test("建楼失败（无 onNotify）：内置 toast host 渲染且位于 .tv-root 内部", async () => {
+  const store = storeOf([], { create: vi.fn(async () => { throw new Error("x"); }) });
+  const { container } = render(<TrajectoryViewer dataSource={dsOf([m(0, "user", "abcdefgh")])}
+                                                  annotationStore={store} />);
+  await screen.findByText("abcdefgh");
+  const block = container.querySelector('[data-msg-idx="0"][data-region="content"]')!;
+  selectRange(block, 2, 5);
+  fireEvent.mouseUp(block);
+  fireEvent.click(await screen.findByRole("button", { name: /评注/ }));
+  fireEvent.change(screen.getByPlaceholderText("写下你的评注…"), { target: { value: "疑问" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+  const root = container.querySelector(".tv-root")!;
+  const host = await waitFor(() => {
+    const el = root.querySelector(".tv-toast-host");
+    expect(el).not.toBeNull();
+    return el!;
+  });
+  // 承重断言：host 被 root 包含（Provider 挪回 ViewerInner 外层时 host 挂在 document 层，此条必红）
+  expect(root.contains(host)).toBe(true);
+});

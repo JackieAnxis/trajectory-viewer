@@ -43,16 +43,25 @@ export interface TrajectoryViewerProps {
   /** false = 隐藏内置工具栏（配 ref 自建 chrome） */
   toolbar?: false;
   className?: string;
+  /** 手动强制主题；不传则跟随系统 prefers-color-scheme */
+  theme?: "dark" | "light";
 }
 
 type Mode = "parsed" | "raw";
 
 const TrajectoryViewer = forwardRef<TrajectoryViewerHandle, TrajectoryViewerProps>(
   function TrajectoryViewer(props, ref) {
+    // 根元素在此渲染：theme 缺省 = 不写 data-theme 属性（跟随系统），
+    // NotifyProvider 必须落在 .tv-root 内部，内置 toast host 才锚在组件里且被自建堆叠上下文罩住
     return (
-      <NotifyProvider onNotify={props.onNotify}>
-        <ViewerInner {...props} handleRef={ref} />
-      </NotifyProvider>
+      <div
+        className={"tv-root" + (props.className ? " " + props.className : "")}
+        data-theme={props.theme}
+      >
+        <NotifyProvider onNotify={props.onNotify}>
+          <ViewerInner {...props} handleRef={ref} />
+        </NotifyProvider>
+      </div>
     );
   },
 );
@@ -62,7 +71,7 @@ function ViewerInner(props: TrajectoryViewerProps & {
 }) {
   const {
     dataSource, delivery, resolveDeliveryUrl, annotationStore, currentUser,
-    renderRaw, toolbar, className, handleRef,
+    renderRaw, toolbar, handleRef,
   } = props;
   const notify = useNotify();
   const [mode, setMode] = useState<Mode>("parsed");
@@ -110,7 +119,7 @@ function ViewerInner(props: TrajectoryViewerProps & {
       annos.reload();
       return true;
     } catch (e) {
-      notify("error", `评注发布失败: ${(e as Error).message}`);
+      notify("error", `评注发布失败: ${String((e as Error)?.message ?? e)}`);
       return false;
     }
   }
@@ -149,7 +158,7 @@ function ViewerInner(props: TrajectoryViewerProps & {
   const foldLabel = foldAction === "collapse" ? "收起" : "展开";
 
   return (
-    <div className={"tv-root" + (className ? " " + className : "")}>
+    <>
       <div className="tv-main">
         {toolbar !== false && (
           <div className="tv-toolbar">
@@ -243,7 +252,7 @@ function ViewerInner(props: TrajectoryViewerProps & {
           onLike={annos.applyLike}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 

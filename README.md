@@ -78,6 +78,7 @@ function RecordView({ item, line }: { item: string; line: number }) {
 | `onNotify` | `(kind: "error"\|"warning"\|"info", text) => void` | 全局通知；不传用内置 toast |
 | `toolbar` | `false` | 隐藏内置工具栏（配 ref 自建） |
 | `className` | `string` | 追加到根元素 |
+| `theme` | `"dark" \| "light"` | 手动强制主题；缺省跟随系统 `prefers-color-scheme`（落在根元素 `data-theme` 上） |
 
 `ref`（`TrajectoryViewerHandle`）：`scrollToAnnotation(msgIdx, annoId): Promise<boolean>`——跨页自动续拉定位批注高亮。
 
@@ -113,7 +114,7 @@ loader.config({ monaco });
 
 ## 主题与换肤
 
-默认浅色，跟随系统暗色；宿主可在任意祖先元素放 `data-theme="dark" | "light"` 手动强制（组件根元素上设置亦可）。换肤 = 覆写根元素 CSS 变量：
+默认浅色，跟随系统暗色；宿主用 `theme="dark" | "light"` prop 手动强制（它落在组件根元素 `.tv-root` 的 `data-theme` 上；**设在祖先元素上无效**）。`AnnotationPanel` / `DeliveryDrawer` 单独使用时暗色自动跟随系统，但不支持手动强制。换肤 = 覆写根元素 CSS 变量：
 
 ```css
 .my-app .tv-root { --tv-accent: #d97706; --tv-accent-weak: rgba(217, 119, 6, 0.1); }
