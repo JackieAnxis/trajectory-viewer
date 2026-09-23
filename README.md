@@ -90,27 +90,35 @@ function RecordView({ item, line }: { item: string; line: number }) {
 npm i @monaco-editor/react monaco-editor
 ```
 
-```tsx
-import Editor from "@monaco-editor/react";
+**① 一次性 worker 配置**（放独立模块，应用入口 `import "./monacoSetup"` 一次即可）：
 
-// Vite：配置 worker（webpack/Rsbuild 请按其 monaco 插件文档）
+```ts
+// monacoSetup.ts —— Vite；webpack/Rsbuild 请按其 monaco 插件文档
 import * as monaco from "monaco-editor";
 import { loader } from "@monaco-editor/react";
 import editorWorker from "monaco-editor/editor/editor.worker.js?worker";
 import jsonWorker from "monaco-editor/language/json/json.worker.js?worker";
 self.MonacoEnvironment = { getWorker: (_id, label) => label === "json" ? new jsonWorker() : new editorWorker() };
 loader.config({ monaco });
+```
+
+**② 在组件里注入 `renderRaw`**：
+
+```tsx
+import Editor from "@monaco-editor/react";
+import { TrajectoryViewer } from "trajectory-viewer";
 
 <TrajectoryViewer
   renderRaw={(raw) => (
     <Editor language="json" value={JSON.stringify(raw, null, 2)} height="100%"
             options={{ readOnly: true, minimap: { enabled: false }, automaticLayout: true }} />
   )}
-  {...rest}
+  dataSource={dataSource}
+  annotationStore={annotationStore}
 />
 ```
 
-零配置替代：删掉上面的 worker 代码与 `loader.config`，`@monaco-editor/react` 默认从 CDN 加载（牺牲离线可用）。raw 视图下组件的「全部展开/收起」按钮自动禁用——自定义渲染器的折叠命令由宿主自行暴露。
+零配置替代：删掉 ① 中的 worker 代码与 `loader.config`，`@monaco-editor/react` 默认从 CDN 加载（牺牲离线可用）。raw 视图下组件的「全部展开/收起」按钮自动禁用——自定义渲染器的折叠命令由宿主自行暴露。
 
 ## 主题与换肤
 

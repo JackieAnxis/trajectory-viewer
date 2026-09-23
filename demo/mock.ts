@@ -2,7 +2,7 @@ import type {
   Annotation, AnnotationReply, AnnotationStore, Msg, MsgPage, TrajectoryDataSource,
 } from "../src/types";
 
-/** 生成 340 条演示消息：system + user + 多轮 assistant（推理/正文/工具调用）+ tool 结果，
+/** 生成 323 条演示消息：system + user + 多轮 assistant（推理/正文/工具调用）+ tool 结果，
  *  覆盖失败结果、weight=0、孤立 tool 等渲染分支（翻页由 limit 切片触发） */
 function buildMessages(): Msg[] {
   const msgs: Msg[] = [
@@ -12,7 +12,7 @@ function buildMessages(): Msg[] {
       content: "帮我检查一下这个项目的构建脚本。" },
   ];
   let idx = 2;
-  for (let round = 0; round < 40; round++) {
+  for (let round = 0; round < 150; round++) {
     msgs.push({
       idx: idx++, role: "assistant", preview: "", content_len: 60, reasoning_len: 30,
       reasoning_content: `第 ${round + 1} 轮：先想想该怎么查。\n\n- 看 package.json\n- 看构建产物`,

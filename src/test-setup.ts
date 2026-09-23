@@ -31,20 +31,3 @@ if (!Element.prototype.scrollIntoView) {
 if (!Element.prototype.scrollTo) {
   Element.prototype.scrollTo = () => {};
 }
-
-// vitest + jsdom 下 globalThis.localStorage 原型链断裂（getItem/setItem/clear
-// 均不可用）；按 test-setup 同款惯例补最小内存版，接口与标准 Storage 一致
-(function ensureStorage() {
-  const proto = Object.getPrototypeOf(globalThis.localStorage) as Record<string, unknown> | null;
-  if (proto && typeof proto.getItem === "function" && typeof proto.setItem === "function") return;
-  const mem = new Map<string, string>();
-  const storage: Storage = {
-    get length() { return mem.size; },
-    clear: () => mem.clear(),
-    getItem: (k) => (mem.has(k) ? mem.get(k)! : null),
-    key: (i) => Array.from(mem.keys())[i] ?? null,
-    removeItem: (k) => { mem.delete(k); },
-    setItem: (k, v) => { mem.set(k, String(v)); },
-  };
-  Object.defineProperty(globalThis, "localStorage", { value: storage, configurable: true });
-})();
