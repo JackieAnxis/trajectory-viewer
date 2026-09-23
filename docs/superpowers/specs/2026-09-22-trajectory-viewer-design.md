@@ -79,6 +79,13 @@ interface TrajectoryViewerProps {
 }
 ```
 
+> **【修正案 2026-09-23 · 公开面增量】** 实现与终审后，上表的封闭枚举面增补两项**可选、非破坏式** prop：
+> ① `TrajectoryViewerProps.theme?: "dark" | "light"` —— 兑现 §5「`data-theme` 手动强制」承诺
+> （缺省不写属性 = 跟随系统；理由与回退方案见台账 Ruling 107，2026-09-23 经用户确认保留）；
+> ② `AnnotationPanelProps.notify?: (kind, text) => void` —— 二级导出组件单独使用时失败通知的注入点
+> （不传且无外层 Provider 时走内置 toast 兜底，不再静默；来源为最终评审 I-4）。
+> 其余 props 承诺不变。
+
 - `item`/`line` 等寻址参数**不出现在 props**：寻址封装在宿主适配器闭包内（`createDataSource(item, line)`），组件只认 `dataSource` 对象。
 - `ref` 收窄为只暴露 `scrollToAnnotation(msgIdx: number, annoId: number): Promise<boolean>`（面板内部用，同时供宿主）；`toggleAllCards` 由内置工具栏消化，不暴露。
 - 内置工具栏：视图切换（轨迹 / JSON）+ 全部展开收起 + 评论区开关（未解决数徽标）+ 交付物开关；两个面板开合互斥内化；点高亮自动开评论区并定位闪烁。
