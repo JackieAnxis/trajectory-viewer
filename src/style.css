@@ -19,6 +19,7 @@
   --tv-danger: #dc2626;                /* 失败标记 */
   --tv-danger-weak: rgba(229, 115, 115, 0.12);
   --tv-success: #7cb342;
+  --tv-success-weak: rgba(124, 179, 66, 0.12);   /* 「已解决」徽标浅绿底 */
   --tv-dead: #b26a00;                  /* 失效楼「原文已变更」 */
   --tv-mark-bg: #ffe58f;               /* 划线高亮底色 */
   --tv-mark-peak: #ffb020;             /* 闪烁峰值 */
@@ -77,6 +78,7 @@
     --tv-danger: #f87171;
     --tv-danger-weak: rgba(248, 113, 113, 0.16);
     --tv-success: #9ccc65;
+    --tv-success-weak: rgba(156, 204, 101, 0.18);
     --tv-dead: #d9a04a;
     --tv-mark-bg: #8a6d1f;
     --tv-mark-peak: #d9a02a;
@@ -118,6 +120,7 @@
   --tv-accent: #3b6fd4; --tv-accent-weak: rgba(59, 111, 212, 0.18);
   --tv-danger: #f87171; --tv-danger-weak: rgba(248, 113, 113, 0.16);
   --tv-success: #9ccc65; --tv-dead: #d9a04a;
+  --tv-success-weak: rgba(156, 204, 101, 0.18);
   --tv-mark-bg: #8a6d1f; --tv-mark-peak: #d9a02a; --tv-flash-ring: rgba(217, 160, 42, 0.5);
   --tv-code-bg: #1b1b1b;
   --tv-tip-bg: rgba(255, 255, 255, 0.92); --tv-tip-text: #111111;
@@ -188,3 +191,880 @@
 .tv-jb { color: var(--tv-json-boolean); }
 .tv-jl { color: var(--tv-json-null); }
 .tv-jp { color: var(--tv-json-punct); }
+
+/* ---- Kimi 式聊天消息流 ---- */
+.tv-chat-stream {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 4px 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* user：右对齐灰气泡 */
+.tv-chat-user {
+  display: flex;
+  justify-content: flex-end;
+}
+.tv-chat-bubble {
+  background: var(--tv-code-bg);
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-width: 80%;
+  font-size: 15px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+/* 气泡内 Markdown：继承字号行高，段落间距收紧 */
+.tv-chat-bubble .tv-markdown {
+  font-size: inherit;
+  line-height: inherit;
+}
+/* 轮(turn)：头像列 + 正文/工具组（每轮一个机器人头像统领整轮，工具卡无独立头像） */
+.tv-chat-turn {
+  display: flex;
+  gap: 12px;
+}
+.tv-chat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--tv-accent-weak);
+  color: var(--tv-accent);
+  position: relative;
+}
+.tv-chat-body {
+  flex: 1;
+  min-width: 0;
+}
+.tv-chat-content {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.tv-chat-content .tv-markdown {
+  font-size: 15px;
+  line-height: 1.7;
+}
+/* 正文排版对齐 Kimi：标题/段落/列表留白更松 */
+.tv-chat-content .tv-markdown p { margin: 12px 0; }
+/* 无思考卡片时正文是 chat-body 的首个元素：抵消首元素上边距，并补齐
+   行框(15px*1.7≈25.5px)与头像(32px)的半差 3px，使首行与头像垂直居中 */
+.tv-chat-body > .tv-chat-content:first-child {
+  margin-top: 3px;
+}
+.tv-chat-body > .tv-chat-content:first-child .tv-markdown > :first-child {
+  margin-top: 0;
+}
+.tv-chat-content .tv-markdown h1, .tv-chat-content .tv-markdown h2,
+.tv-chat-content .tv-markdown h3, .tv-chat-content .tv-markdown h4 {
+  margin: 20px 0 10px;
+}
+.tv-chat-content .tv-markdown h1 { font-size: 20px; }
+.tv-chat-content .tv-markdown h2 { font-size: 18px; }
+.tv-chat-content .tv-markdown h3 { font-size: 16px; }
+.tv-chat-content .tv-markdown ul, .tv-chat-content .tv-markdown ol { margin: 12px 0; }
+.tv-chat-content .tv-markdown li { margin: 4px 0; }
+/* 折叠卡片（系统提示 / 思考 / 工具行） */
+.tv-chat-card {
+  border: 1px solid var(--tv-border);
+  border-radius: 8px;
+  background: var(--tv-surface);
+}
+.tv-chat-card > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--tv-ink-secondary);
+  border-radius: 8px;
+}
+.tv-chat-card > summary::-webkit-details-marker {
+  display: none;
+}
+.tv-chat-card > summary:hover {
+  background: var(--tv-surface-hover);
+}
+.tv-chat-icon {
+  color: var(--tv-dim);
+  font-size: 14px;
+  display: inline-flex;
+  width: 14px;
+  justify-content: center;
+}
+/* 折叠卡 summary 文本（系统提示 / 思考过程） */
+.tv-chat-card-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tv-chat-chevron {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+.tv-chat-card[open] > summary .tv-chat-chevron {
+  transform: rotate(90deg);
+}
+.tv-chat-card-body {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--tv-border);
+  font-size: 13px;
+  overflow-wrap: break-word;
+}
+/* 工具结果纯文本：等宽、保留换行、软换行防溢出（日志/命令输出原本就是多行） */
+.tv-chat-toolresult {
+  margin: 0;
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+/* 正文前的内嵌卡片与顶部系统卡片留出间距 */
+.tv-chat-thinkcard,
+.tv-chat-syscard {
+  margin-bottom: 8px;
+}
+/* 工具组：轮内配对卡紧凑 6px 堆叠（头像由外层 chat-turn 的机器人统一承担）；组间由 chat-stream 的 16px gap 分隔 */
+.tv-chat-toolgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* 配对卡 summary 行：工具名 chip 开头 + 调用摘要 → 结果摘要 + chevron */
+.tv-chat-pairrow > summary {
+  gap: 8px;
+}
+.tv-pair-name {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tv-accent);
+  background: var(--tv-accent-weak);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+}
+/* 孤立 tool 结果（无配对调用）：灰色中性 chip */
+.tv-chat-pairrow.is-orphan .tv-pair-name {
+  color: var(--tv-ink-secondary);
+  background: rgba(0, 0, 0, 0.06);
+  font-family: inherit;
+}
+.tv-pair-args {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--tv-ink-secondary);
+}
+.tv-pair-args:empty {
+  display: none;
+}
+/* 参数与结果间的因果箭头 */
+.tv-pair-arrow {
+  flex-shrink: 0;
+  color: rgba(0, 0, 0, 0.25);
+  font-size: 11px;
+}
+.tv-pair-result-sum {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--tv-ink-tertiary);
+}
+/* 失败结果：摘要变红 + 「失败」徽标（成功保持安静，不加噪音） */
+.tv-chat-pairrow.is-fail .tv-pair-result-sum {
+  color: var(--tv-danger);
+}
+.tv-pair-fail {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tv-danger);
+  background: rgba(229, 115, 115, 0.12);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+/* 展开态：调用参数 → 返回结果，左竖线表达一节因果（确认稿无行间执行链） */
+.tv-pair-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--tv-border);
+}
+.tv-pair-sec {
+  position: relative;
+  padding-left: 16px;
+}
+/* 竖线：从本节标签连到下一节（末段只留小尾巴）*/
+.tv-pair-sec::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  bottom: -12px;
+  width: 2px;
+  background: var(--tv-border-strong);
+}
+.tv-pair-sec:last-child::before {
+  bottom: auto;
+  height: 6px;
+}
+/* 圆点锚住每节起点：参数蓝点、结果灰点、失败红点 */
+.tv-pair-sec::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tv-surface);
+  border: 2px solid var(--tv-border-strong);
+}
+.tv-pair-sec.sec-args::after {
+  border-color: var(--tv-accent);
+}
+.tv-pair-sec.sec-fail::after {
+  border-color: var(--tv-danger);
+}
+.tv-pair-sec-label {
+  font-size: 11px;
+  color: var(--tv-ink-tertiary);
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+}
+.tv-pair-sec.sec-fail .tv-pair-sec-label {
+  color: var(--tv-danger);
+}
+/* JSON 内容与工具调用参数：等宽非衬线（Consolas/Cascadia 等无衬线等宽） */
+.tv-json-highlight {
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+}
+/* 超长 token（如整条 shell 命令）软换行，不撑破容器；缩进由行容器 paddingLeft 表达 */
+.tv-json-hl-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Markdown 渲染（content / 推理 的非 JSON 部分） */
+.tv-markdown {
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.tv-markdown > :first-child { margin-top: 0; }
+.tv-markdown > :last-child { margin-bottom: 0; }
+.tv-markdown p { margin: 6px 0; }
+.tv-markdown h1, .tv-markdown h2, .tv-markdown h3, .tv-markdown h4 {
+  margin: 10px 0 6px; font-weight: 600; line-height: 1.3;
+}
+.tv-markdown h1 { font-size: 18px; }
+.tv-markdown h2 { font-size: 16px; }
+.tv-markdown h3 { font-size: 14px; }
+.tv-markdown ul, .tv-markdown ol { margin: 6px 0; padding-left: 22px; }
+.tv-markdown li { margin: 2px 0; }
+.tv-markdown a { color: var(--tv-accent); text-decoration: none; }
+.tv-markdown a:hover { text-decoration: underline; }
+.tv-markdown blockquote {
+  margin: 6px 0; padding: 4px 12px; border-left: 3px solid rgba(0,0,0,0.15);
+  color: rgba(0,0,0,0.6);
+}
+
+/* ---- 交付物卡片（对话底部，Kimi 式） ---- */
+.tv-delivery-cards {
+  margin-top: 8px;
+}
+.tv-delivery-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--tv-border);
+  border-radius: 12px;
+  background: var(--tv-surface);
+  padding: 14px 16px;
+  transition: background 0.15s;
+}
+.tv-delivery-card:hover {
+  background: var(--tv-surface-hover);
+}
+.tv-delivery-icon {
+  font-size: 22px;
+  color: rgba(0, 0, 0, 0.55);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.tv-delivery-text {
+  flex: 1;
+  min-width: 0;
+}
+.tv-delivery-text .tv-delivery-name,
+.tv-delivery-text .tv-delivery-sub {
+  display: block;
+}
+.tv-delivery-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tv-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tv-delivery-sub {
+  font-size: 12px;
+  color: var(--tv-ink-tertiary);
+  margin-top: 1px;
+}
+/* 整卡可点：button 语义 + 视觉与原卡片一致 */
+.tv-delivery-card-click {
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+/* 抽屉内文件树容器（列表）：与抽屉等高自适应，内容多时内部滚动 */
+.tv-delivery-modal-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* 右侧抽屉：并排分栏压缩主区域——纯白底色 + 1px 浅灰垂直分割线，
+   无水平分割线，视觉语言与左侧列表一致；点击主区任意处即关闭。
+   常驻 DOM，收起态 width 0 + visibility hidden，open 类驱动宽度过渡（右滑开合动画） */
+.tv-delivery-drawer {
+  /* 面板宽度（含动画目标值） */
+  --panel-w: 340px;
+  width: 0;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--tv-surface);
+  border-left: 1px solid transparent;
+  visibility: hidden; /* 收起态不可聚焦；延迟到宽度动画结束后再隐藏 */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: width 0.25s cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 0.25s;
+}
+.tv-delivery-drawer-open {
+  width: var(--panel-w);
+  border-left-color: var(--tv-border);
+  visibility: visible;
+  transition: width 0.25s cubic-bezier(0.2, 0, 0, 1); /* 展开时 visibility 立即生效 */
+}
+/* 内容固定面板宽：收起动画期间不被压缩换行，随容器宽度从右向左裁切；
+   border-box 保证含 padding 后不超出面板，否则行右缘会被容器裁切 */
+.tv-delivery-drawer-head,
+.tv-delivery-drawer .tv-delivery-modal-list {
+  width: var(--panel-w);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.tv-delivery-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px; /* 与左侧 detail-head 同高，两列标题水平对齐 */
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 0 16px;
+  font-weight: 600;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.tv-delivery-drawer-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--tv-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+.tv-delivery-drawer-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--tv-ink);
+}
+.tv-delivery-drawer .tv-delivery-modal-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 8px 12px;
+}
+/* 文件夹树行：与左侧列表行同语言——白底、无行间分隔线、hover 圆角块；
+   目录行与文件行均为整行可点 button（文件行点击直接新标签页打开） */
+.tv-delivery-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin: 2px 0;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.tv-delivery-tree-row:hover {
+  background: var(--tv-surface-hover);
+}
+/* 行名与左侧列表文字一致（13px 常规字重）；flex 撑开以便省略号截断 */
+.tv-delivery-tree-row .tv-delivery-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--tv-ink);
+}
+/* 抽屉行内图标按列表尺度缩小（卡片图标 22px 保留给底部卡片） */
+.tv-delivery-drawer .tv-delivery-icon {
+  font-size: 16px;
+}
+.tv-delivery-tree-chevron {
+  font-size: 10px;
+  color: var(--tv-ink-tertiary);
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.tv-delivery-tree-count {
+  font-size: 12px;
+  color: var(--tv-ink-tertiary);
+  flex-shrink: 0;
+}
+
+/* ---- Kimi 式表格卡片：灰底圆角容器 + 顶部工具条 + 白底表格 ---- */
+.tv-chat-table-card {
+  margin: 12px 0;
+  background: var(--tv-code-bg);
+  border: 1px solid var(--tv-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tv-chat-table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+  border-bottom: 1px solid var(--tv-border);
+  background: var(--tv-code-bg);
+}
+.tv-chat-table-actions {
+  display: flex;
+  gap: 4px;
+}
+.tv-chat-table-copy {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--tv-dim);
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s, color 0.15s;
+}
+.tv-chat-table-copy:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.75);
+}
+.tv-chat-table-body {
+  background: var(--tv-surface);
+  overflow-x: auto; /* 列过多时容器内横向滚动，不撑破卡片 */
+}
+.tv-chat-table-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0;
+  font-size: 14px;
+}
+.tv-chat-table-body th,
+.tv-chat-table-body td {
+  border: none;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 10px 16px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.6;
+}
+.tv-chat-table-body th:last-child,
+.tv-chat-table-body td:last-child {
+  border-right: none;
+}
+.tv-chat-table-body tbody tr:last-child td {
+  border-bottom: none;
+}
+.tv-chat-table-body th {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  background: transparent;
+}
+
+/* 代码块与行内代码：等宽非衬线 */
+.tv-markdown code, .tv-chat-stream .tv-markdown pre {
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+}
+.tv-markdown code {
+  font-size: 12px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px;
+}
+.tv-markdown pre {
+  margin: 6px 0; padding: 8px 10px; background: rgba(0,0,0,0.04);
+  border-radius: 8px; overflow-x: auto; font-size: 12px;
+}
+.tv-markdown pre code { background: none; padding: 0; }
+
+/* 代码块换行切换：默认自动换行；右上角悬浮图标按钮（共享组件 WrapToggleButton），点击切到不换行（横向滚动） */
+.tv-code-block { position: relative; }
+/* 右侧留白避开悬浮图标按钮 */
+.tv-code-block pre { white-space: pre-wrap; word-break: break-word; padding-right: 36px; }
+.tv-code-nowrap pre { white-space: pre; word-break: normal; }
+.tv-code-wrap-toggle {
+  position: absolute; top: 6px; right: 8px; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 20px; padding: 0;
+  border: 1px solid rgba(0,0,0,0.08); border-radius: 6px;
+  font-size: 12px; line-height: 1;
+  background: rgba(255,255,255,0.92); color: rgba(0,0,0,0.45);
+  cursor: pointer; user-select: none;
+}
+.tv-code-wrap-toggle:hover { color: rgba(0,0,0,0.75); border-color: rgba(0,0,0,0.16); }
+
+/* 代码块语法高亮 token 配色：取自 highlight.js「GitHub」亮色主题，
+   仅保留颜色规则——官方主题的 .hljs 白底/padding 会破坏现有灰底代码块样式，故不引入 */
+.hljs { color: var(--tv-hljs-base); }
+.hljs-doctag, .hljs-keyword, .hljs-meta .hljs-keyword, .hljs-template-tag,
+.hljs-template-variable, .hljs-type, .hljs-variable.language_ { color: var(--tv-hljs-keyword); }
+.hljs-title, .hljs-title.class_, .hljs-title.class_.inherited__, .hljs-title.function_ { color: var(--tv-hljs-title); }
+.hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator,
+.hljs-variable, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: var(--tv-hljs-attr); }
+.hljs-regexp, .hljs-string, .hljs-meta .hljs-string { color: var(--tv-hljs-string); }
+.hljs-built_in, .hljs-symbol { color: var(--tv-hljs-builtin); }
+.hljs-comment, .hljs-code, .hljs-formula { color: var(--tv-hljs-comment); }
+.hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo { color: var(--tv-hljs-name); }
+.hljs-subst { color: var(--tv-hljs-base); }
+.hljs-section { color: var(--tv-hljs-attr); font-weight: bold; }
+.hljs-bullet { color: var(--tv-hljs-comment); }
+.hljs-emphasis { color: var(--tv-hljs-base); font-style: italic; }
+.hljs-strong { color: var(--tv-hljs-base); font-weight: bold; }
+.hljs-addition { color: var(--tv-hljs-name); background-color: var(--tv-hljs-addition-bg); }
+.hljs-deletion { color: var(--tv-hljs-deletion); background-color: var(--tv-hljs-deletion-bg); }
+
+/* reduced-motion 下 .ws-surface 的宽窄过渡由上方全局时长清零规则统一关闭
+   （spec §7），此处不再单独声明，避免属性级 none 再次杀死动画事件。 */
+
+/* --- 批注高亮与划线浮层(spec 2026-09-08 §6.2) --- */
+.tv-anno-mark {
+  background: var(--tv-mark-bg);              /* 黄底高亮；mark 默认样式覆盖 */
+  padding: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.tv-anno-flash { animation: tv-anno-flash 1.6s ease; }
+@keyframes tv-anno-flash {
+  0%, 100% { background: var(--tv-mark-bg); }
+  50% { background: var(--tv-mark-peak); }
+}
+.tv-anno-popover {
+  position: fixed;                  /* 脱离流,定位由选区矩形算出 */
+  z-index: 1000;
+}
+.tv-anno-popover-btn {
+  border: none;
+  background: var(--tv-surface);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--tv-ink);
+}
+.tv-anno-popover-btn:hover { background: var(--tv-surface-hover); }
+.tv-anno-popover-editor {
+  background: var(--tv-surface);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  width: 260px;
+}
+.tv-anno-popover-editor textarea {
+  width: 100%;
+  border: 1px solid var(--tv-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.tv-anno-popover-editor textarea:focus { border-color: var(--tv-accent); }
+.tv-anno-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tv-anno-popover-actions button {
+  border: none;
+  border-radius: 5px;
+  padding: 3px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tv-anno-popover-actions button[type="button"]:first-child { background: var(--tv-surface-hover); color: var(--tv-secondary); }
+.tv-anno-popover-actions button:last-child { background: var(--tv-accent); color: var(--tv-on-accent); }
+.tv-anno-popover-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* --- 「批注与讨论」右栏面板(spec 2026-09-08 §6.1):复刻 delivery-drawer 并排抽屉 --- */
+.tv-anno-panel {
+  --panel-w: 380px;
+  width: 0;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--tv-surface);
+  border-left: 1px solid transparent;
+  visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: width 0.25s cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 0.25s;
+}
+.tv-anno-panel-open {
+  width: var(--panel-w);
+  border-left-color: var(--tv-border);
+  visibility: visible;
+  transition: width 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+/* 内容固定面板宽:收起动画期间不被压缩换行(同 delivery-drawer) */
+.tv-anno-panel-head, .tv-anno-panel-body {
+  width: var(--panel-w);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.tv-anno-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  min-height: 52px;
+  padding: 0 16px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.tv-anno-panel-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--tv-secondary);
+}
+.tv-anno-panel-close:hover { background: var(--tv-surface-hover); }
+.tv-anno-panel-body { flex: 1; overflow-y: auto; padding: 4px 12px 16px; }
+.tv-anno-card {
+  border: 1px solid var(--tv-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.tv-anno-card-flash { animation: tv-anno-card-flash 1.6s ease; }
+@keyframes tv-anno-card-flash {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 3px var(--tv-flash-ring); }
+}
+.tv-anno-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.tv-anno-card-author { font-weight: 600; font-size: 13px; }
+.tv-anno-card-time { color: var(--tv-ink-tertiary); font-size: 12px; }
+.tv-anno-card-edited { color: var(--tv-ink-tertiary); font-size: 12px; }
+.tv-anno-quote {
+  margin: 6px 0;
+  padding: 4px 8px;
+  background: var(--tv-surface-hover);
+  border-left: 3px solid var(--tv-border-strong);
+  border-radius: 0 4px 4px 0;
+  color: var(--tv-secondary);
+  font-size: 12px;
+  cursor: pointer;                  /* 点击 → 滚动定位高亮(spec §6.1) */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.tv-anno-quote:hover { background: var(--tv-surface-hover); }
+.tv-anno-dead {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--tv-dead);
+  background: var(--tv-mark-bg);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.tv-anno-card-body { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.tv-anno-actions { display: flex; align-items: center; gap: 14px; margin-top: 6px; font-size: 12px; color: var(--tv-ink-tertiary); }
+.tv-anno-actions button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--tv-ink-tertiary);
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.tv-anno-actions button:hover { background: var(--tv-surface-hover); }
+.tv-anno-actions button.liked { color: var(--tv-accent); }
+.tv-anno-resolved-badge { color: var(--tv-success); background: var(--tv-success-weak); border-radius: 4px; padding: 0 6px; }
+/* hover 才显的编辑/删除:卡片级 hover 显隐 */
+.tv-anno-card .tv-anno-hover-only { visibility: hidden; }
+.tv-anno-card:hover .tv-anno-hover-only { visibility: visible; }
+.tv-anno-replies { margin-top: 8px; border-top: 1px dashed var(--tv-border); padding-top: 6px; }
+.tv-anno-reply { margin-bottom: 8px; }
+.tv-anno-reply-l2 { margin-left: 28px; }             /* 二级缩进(更深层服务端已压平) */
+.tv-anno-reply-toggle { color: var(--tv-accent); cursor: pointer; font-size: 12px; }
+.tv-anno-reply-input { display: flex; gap: 6px; margin-top: 8px; }
+.tv-anno-reply-input input {
+  flex: 1;
+  border: 1px solid var(--tv-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  outline: none;
+}
+.tv-anno-reply-input input:focus { border-color: var(--tv-accent); }
+.tv-anno-reply-input button {
+  border: none;
+  background: var(--tv-accent);
+  color: var(--tv-on-accent);
+  border-radius: 6px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+.tv-anno-reply-input button:disabled { opacity: 0.5; cursor: not-allowed; }
+.tv-anno-replying-to { font-size: 12px; color: var(--tv-ink-tertiary); margin-top: 6px; display: flex; gap: 8px; }
+.tv-anno-replying-to button { border: none; background: none; color: var(--tv-accent); cursor: pointer; }
+.tv-anno-panel-empty { color: var(--tv-ink-tertiary); font-size: 13px; text-align: center; padding: 24px 0; }
+/* 卡片/回复行就地编辑器:复用浮层编辑器(anno-popover-editor)的视觉语言,宽度随卡片自适应
+   (简报逐字块之外的最小补充——就地编辑态需 textarea 样式,复用 260px 固定宽浮层容器不合适) */
+.tv-anno-card-editor textarea {
+  width: 100%;
+  border: 1px solid var(--tv-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.tv-anno-card-editor textarea:focus { border-color: var(--tv-accent); }
+.tv-anno-card-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tv-anno-card-editor-actions button {
+  border: none;
+  border-radius: 5px;
+  padding: 3px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tv-anno-card-editor-actions button:first-child { background: var(--tv-surface-hover); color: var(--tv-secondary); }
+.tv-anno-card-editor-actions button:last-child { background: var(--tv-accent); color: var(--tv-on-accent); }
+.tv-anno-card-editor-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* —— 组合层骨架（源项目不存在，本包新造：工具栏 + 消息流容器 + 通知兜底） —— */
+.tv-root { position: relative; }
+.tv-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.tv-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; border-bottom: 1px solid var(--tv-border);
+  background: var(--tv-surface); flex-shrink: 0;
+}
+.tv-toolbar-actions { display: flex; align-items: center; gap: 4px; }
+.tv-tool-btn {
+  border: none; background: transparent; color: var(--tv-secondary);
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+.tv-tool-btn:hover:not(:disabled) { background: var(--tv-accent-weak); color: var(--tv-ink); }
+.tv-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tv-flow { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px; }
+
+.tv-dim { color: var(--tv-dim); }
+.tv-msg-error { margin-bottom: 8px; }
+.tv-error-text { color: var(--tv-danger); }
+.tv-link-btn {
+  border: none; background: transparent; color: var(--tv-accent);
+  cursor: pointer; font-size: 13px; padding: 0 4px;
+}
+
+/* 头像右下角 weight 置零徽标（源 .avatar-zero；颜色按 §3 真值表变量化） */
+.tv-avatar-zero {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 15px;
+  height: 15px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  border-radius: 8px;
+  color: var(--tv-danger);
+  border: 1px solid rgba(229, 115, 115, 0.55);
+  background: rgba(229, 115, 115, 0.14);
+  cursor: help;
+}
+
+/* —— 组合层补充：本包新造类名（源项目无同名规则，按用法补最小结构样式） ——
+   说明：以下 5 个类在源 global.css 中零命中，属本包新造的钩子/标记类；
+   视觉主体仍由共现类提供（.tv-tool-btn / .tv-segmented / .tv-chat-table-head /
+   .tv-delivery-tree-row），此处只补各自不可省的那一两条结构声明。 */
+.tv-anno-tabs { margin-bottom: 8px; }
+.tv-anno-like { display: inline-flex; align-items: center; gap: 4px; }
+/* 工具栏图标按钮的专属钩子（承载 aria-expanded）：与 .tv-tool-btn 共现，只补图标居中 */
+.tv-anno-panel-trigger, .tv-delivery-drawer-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tv-chat-table-title { flex: 1; min-width: 0; }
+.tv-delivery-tree-dir .tv-delivery-name { font-weight: 600; }
+/* 换行态标记：默认态，与 .tv-code-block 共现（源项目无独立 .code-wrap 规则，
+   换行行为由 .tv-code-block pre 提供；此处显式声明以固定该标记的语义） */
+.tv-code-wrap pre { white-space: pre-wrap; word-break: break-word; }
