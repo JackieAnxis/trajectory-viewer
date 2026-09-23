@@ -2,8 +2,6 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { faCopy } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import WrapToggleButton from "./WrapToggleButton";
 
 interface MarkdownProps {
@@ -21,17 +19,12 @@ function CodeBlock({ children }: { children?: React.ReactNode }) {
   );
 }
 
-/** 表格卡片头部：标题 + 复制按钮 */
+/** 表格卡片头部：仅「表格」标题（复制按钮为无行为死控件，v1 删除——K-3） */
 function TableCard({ children }: { children?: React.ReactNode }) {
   return (
     <div className="tv-chat-table-card">
       <div className="tv-chat-table-head">
         <span className="tv-chat-table-title">表格</span>
-        <span className="tv-chat-table-actions">
-          <button className="tv-chat-table-copy" type="button" title="复制" aria-label="复制表格">
-            <FontAwesomeIcon icon={faCopy} />
-          </button>
-        </span>
       </div>
       <div className="tv-chat-table-body">{children}</div>
     </div>

@@ -16,11 +16,13 @@ test("表格被 .tv-chat-table-card 卡片容器包裹", () => {
   expect(card?.querySelector("table")).not.toBeNull();
 });
 
-test("卡片头部含「表格」标题与复制按钮", () => {
+// K-3：「复制表格」按钮是无 onClick 的死控件（v1 零要求，点击无反馈），已授权删除；
+// 断言由「存在」翻转为「不存在」——复原一个无 handler 的按钮必让本条红
+test("卡片头部含「表格」标题（复制死控件已删，不存在）", () => {
   const { container } = render(<Markdown>{TABLE_MD}</Markdown>);
   const head = container.querySelector(".tv-chat-table-head");
   expect(head?.textContent).toContain("表格");
-  expect(container.querySelector(".tv-chat-table-copy")).not.toBeNull();
+  expect(container.querySelector(".tv-chat-table-copy")).toBeNull();
 });
 
 test("非表格内容不产生卡片容器", () => {

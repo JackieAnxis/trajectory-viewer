@@ -34,7 +34,9 @@ export function useAnnotations(
     store.list()
       .then((list) => {
         if (annoReq.current !== req) return;   // 切记录后旧响应晚到：丢弃
-        setAnnotations(list);
+        // 违约防御（K-1）：resolve 坏值（如 null）归一为空数组，.catch 兜不住这种形态，
+        // 直传会让面板永驻「加载中」
+        setAnnotations(Array.isArray(list) ? list : []);
         setLoadError(false);
       })
       .catch(() => { if (annoReq.current === req) setLoadError(true); });

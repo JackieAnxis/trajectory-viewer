@@ -116,3 +116,81 @@ test("raw：失败给 rawError", async () => {
   render(<RawHarness ds={ds} active={true} />);
   await waitFor(() => expect(rawLatest.rawError).toBe("读取失败"));
 });
+
+// ---- 最终 ONE fix dispatch：K-1 适配器违约防御 / K-4 M-6 非 Error 抛出 ----
+
+// K-1①：游标只信实收条数——returned 造假（返回 3 条却报 returned:1）时，
+// 旧实现 loaded = from + returned 会漂到 1，下一页 from 必错
+test("K-1 returned 造假：下一页 from 按实收条数推进而非 returned", async () => {
+  const three = [m(0, "user", "一"), m(1, "user", "二"), m(2, "user", "三")];
+  const fetchMessages = vi.fn(async (q: { from: number; limit: number }) =>
+    q.from === 0
+      ? ({ messages: three, from: 0, returned: 1, has_more: true } as MsgPage)
+      : pageOf([m(3, "assistant", "四")], 3, false));
+  render(<StreamHarness ds={dsOf(fetchMessages)} />);
+  await waitFor(() => expect(latest.msgs).toHaveLength(3));
+  showSentinel();
+  await waitFor(() => expect(fetchMessages).toHaveBeenCalledTimes(2));
+  expect(fetchMessages).toHaveBeenLastCalledWith({ from: 3, limit: 300 });
+});
+
+// K-1②：has_more:true 但某页实收 0 条 → 立即止损 hasMore=false，
+// 掐死「哨兵每次可见都再发一页空请求」的串行重试风暴（超时/调用暴涨都算红）
+test("K-1 空页止损：第二页 0 条后 fetchMessages 恰好 2 次不再发", async () => {
+  const fetchMessages = vi.fn(async (q: { from: number; limit: number }) =>
+    q.from === 0
+      ? pageOf([m(0, "user", "问")], 0, true)
+      : ({ messages: [], from: 1, returned: 0, has_more: true } as MsgPage));
+  render(<StreamHarness ds={dsOf(fetchMessages)} />);
+  await waitFor(() => expect(latest.msgs).toHaveLength(1));
+  showSentinel();
+  await waitFor(() => expect(fetchMessages).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(latest.hasMore).toBe(false));   // 空页即止损，不信 has_more
+  showSentinel();                                            // 再滚一次：不得发第 3 页
+  expect(await latest.loadMore()).toBe(false);               // 手动调也门控拒绝
+  await new Promise((r) => setTimeout(r, 20));               // 有限等待观察无自动重发
+  expect(fetchMessages).toHaveBeenCalledTimes(2);
+});
+
+// K-1③：首页 messages 非数组（违约返回 undefined）→ 静默归一为空态，
+// 不崩、不进错误态（无 msgError——变异防线：摘 Array.isArray 会让 TypeError 进 catch 置错）、不再自动发请求
+test("K-1 messages 非数组：归一空态，不崩且无自动重发", async () => {
+  const fetchMessages = vi.fn(async () =>
+    ({ messages: undefined, from: 0, returned: 3, has_more: true } as unknown as MsgPage));
+  render(<StreamHarness ds={dsOf(fetchMessages)} />);
+  await waitFor(() => expect(fetchMessages).toHaveBeenCalledTimes(1));
+  expect(latest.msgs).toEqual([]);
+  expect(latest.msgError).toBeNull();
+  expect(latest.hasMore).toBe(false);                        // 空页止损对非数组同样生效
+  await new Promise((r) => setTimeout(r, 20));
+  expect(fetchMessages).toHaveBeenCalledTimes(1);
+});
+
+// K-1③b：续拉页 messages 非数组 → 与首页同一归一：不混入坏页、不进错误态、随即止损
+test("K-1 续拉页非数组：归一空追加，不进错误态", async () => {
+  const fetchMessages = vi.fn(async (q: { from: number; limit: number }) =>
+    q.from === 0
+      ? pageOf([m(0, "user", "问")], 0, true)
+      : ({ messages: undefined, from: 1, returned: 9, has_more: true } as unknown as MsgPage));
+  render(<StreamHarness ds={dsOf(fetchMessages)} />);
+  await waitFor(() => expect(latest.msgs).toHaveLength(1));
+  showSentinel();
+  await waitFor(() => expect(fetchMessages).toHaveBeenCalledTimes(2));
+  expect(latest.msgs).toHaveLength(1);                       // 坏页不混入
+  expect(latest.msgError).toBeNull();                        // 归一不抛，不进错误态
+  expect(latest.hasMore).toBe(false);                        // 非数组视作空页 → 止损
+  await new Promise((r) => setTimeout(r, 20));
+  expect(fetchMessages).toHaveBeenCalledTimes(2);            // 止损后不再自动拉
+});
+
+// K-4 M-6：reject 一个字符串（非 Error）→ 错误文本含原串，不显示 "undefined"
+test("K-4 非 Error 抛出：加载更多失败文本含原串且不含 undefined", async () => {
+  const fetchMessages = vi.fn(async (q: { from: number; limit: number }) =>
+    q.from === 0 ? pageOf([m(0, "user", "问")], 0, true) : Promise.reject("boom"));
+  render(<StreamHarness ds={dsOf(fetchMessages)} />);
+  await waitFor(() => expect(latest.msgs).toHaveLength(1));
+  showSentinel();
+  await waitFor(() => expect(latest.msgError).toContain("加载更多失败"));
+  expect(latest.msgError).toContain("boom");
+  expect(latest.msgError).not.toContain("undefined");
+});

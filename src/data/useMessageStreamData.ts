@@ -51,12 +51,14 @@ export function useMessageStreamData(
     dataSource.fetchMessages({ from: 0, limit: PAGE })
       .then((m) => {
         if (!live) return;
-        setMsgs(m.messages);
-        loaded.current = m.from + m.returned;
-        setHasMore(m.has_more);
+        // 违约防御（K-1）：只信实收数组，不信 from/returned；空页立即止损防重试风暴
+        const got = Array.isArray(m.messages) ? m.messages : [];
+        loaded.current = got.length;
+        setHasMore(got.length > 0 && m.has_more === true);
+        setMsgs(got);
       })
       .catch((e) => {
-        if (live) setMsgError(`消息加载失败: ${(e as Error).message}`);
+        if (live) setMsgError(`消息加载失败: ${String((e as Error)?.message ?? e)}`);
       });
     return () => { live = false; };
   }, [dataSource, reloadKey]);
@@ -69,13 +71,15 @@ export function useMessageStreamData(
       const m = await dataSource.fetchMessages({ from: loaded.current, limit: PAGE });
       // stale 防护：已切记录或已有更新请求时丢弃过期响应
       if (loadReq.current !== req) return false;
-      setMsgs((prev) => [...prev, ...m.messages]);
-      loaded.current = m.from + m.returned;
-      setHasMore(m.has_more);
+      // 与首页同一归一：游标按实收累加，空页/非数组即止损（K-1）
+      const got = Array.isArray(m.messages) ? m.messages : [];
+      loaded.current += got.length;
+      setMsgs((prev) => [...prev, ...got]);
+      setHasMore(got.length > 0 && m.has_more === true);
       setMsgError(null);
       return true;
     } catch (e) {
-      if (loadReq.current === req) setMsgError(`加载更多失败: ${(e as Error).message}`);
+      if (loadReq.current === req) setMsgError(`加载更多失败: ${String((e as Error)?.message ?? e)}`);
       return false;
     } finally {
       if (loadReq.current === req) loadingMore.current = false;

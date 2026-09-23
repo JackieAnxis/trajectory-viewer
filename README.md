@@ -122,7 +122,7 @@ loader.config({ monaco });
 
 ## 二级导出
 
-`AnnotationPanel`、`DeliveryDrawer` 可单独导入摆布（props 见 `.d.ts`）；主组件 `<TrajectoryViewer>` 之外的所有公共类型（`Msg`、`MsgPage`、`Annotation`、`AnchorInput`、`TrajectoryDataSource`、`AnnotationStore` 等）均从包根导出。
+`AnnotationPanel`、`DeliveryDrawer` 可单独导入摆布（props 见 `.d.ts`）；`AnnotationPanel` 独立使用时可经 `notify` prop 收口失败通知，缺省走内置浮条。主组件 `<TrajectoryViewer>` 之外的所有公共类型（`Msg`、`MsgPage`、`Annotation`、`AnchorInput`、`TrajectoryDataSource`、`AnnotationStore` 等）均从包根导出。
 
 ## 本地开发
 

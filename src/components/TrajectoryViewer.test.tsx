@@ -369,3 +369,19 @@ test("建楼失败（无 onNotify）：内置 toast host 渲染且位于 .tv-roo
   // 承重断言：host 被 root 包含（Provider 挪回 ViewerInner 外层时 host 挂在 document 层，此条必红）
   expect(root.contains(host)).toBe(true);
 });
+
+// K-2 防双 host：主组件内已有外层 Provider（H-11a），面板 K-2 的自检须让位于它——
+// 若「有 Provider 也自包一层」，一次失败会出现两个 host
+test("K-2 主组件内面板失败：root 内 toast host 恰好一个（防双 host）", async () => {
+  const store = storeOf([mkAnn({ author: "bob" })], {
+    setLike: vi.fn(async () => { throw new Error("boom"); }),
+  });
+  render(<TrajectoryViewer dataSource={dsOf([])} annotationStore={store}
+                           currentUser={{ name: "bob" }} />);
+  await waitFor(() => expect(document.querySelector(".tv-badge-count")).not.toBeNull());
+  fireEvent.click(screen.getByLabelText("批注与讨论"));
+  await screen.findByText("楼");
+  fireEvent.click(await screen.findByTitle("点赞"));
+  await waitFor(() => expect(document.querySelector(".tv-toast-host")).not.toBeNull());
+  expect(document.querySelectorAll(".tv-toast-host")).toHaveLength(1);
+});

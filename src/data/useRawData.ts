@@ -35,7 +35,8 @@ export function useRawData(
         }
       })
       .catch((e) => {
-        if (rawReq.current === req) setRawError((e as Error).message);
+        // 非 Error 抛出时 (e as Error).message 为 undefined（K-4 M-6）：回落到 String(e)
+        if (rawReq.current === req) setRawError(String((e as Error)?.message ?? e));
       })
       .finally(() => {
         if (rawReq.current === req) loadingRaw.current = false;

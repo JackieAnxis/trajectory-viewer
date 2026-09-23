@@ -378,6 +378,65 @@ test("写操作失败:notify 中文提示,成功回调不触发", async () => {
   expect(notify).toHaveBeenCalledTimes(5);
 });
 
+// ---- 最终 ONE fix dispatch：K-2 独立使用的通知注入 / 锚点作用域 / 文案 ----
+
+/** 独立渲染（不包 NotifyProvider）：宿主单独摆面板的真实形态 */
+function renderStandalone(over: Partial<Parameters<typeof AnnotationPanel>[0]> = {}) {
+  const store = mockStore(over.store ? { ...over.store } : {});
+  const props = {
+    open: true, onClose: vi.fn(), annotations: [mkAnno({ id: 1 })] as Annotation[] | null,
+    loadError: false, onRetry: vi.fn(), me: "bob", isAdmin: false, store,
+    deadIds: new Set<number>(), focusId: null, onFocusConsumed: vi.fn(),
+    onQuoteClick: vi.fn(), onChanged: vi.fn(), onLike: vi.fn(), ...over,
+  };
+  const utils = render(<AnnotationPanel {...props} />);
+  return { store, props, ...utils };
+}
+
+// K-2①：独立渲染 + 写操作失败 → 内置 toast 兜底（不再永久静默），host 锚在面板内（H-11d 的 relative）
+test("K-2 独立使用：无外层 Provider 时点赞失败自渲染 toast host 于面板内", async () => {
+  const store = mockStore({ setLike: vi.fn(async () => { throw new Error("boom"); }) });
+  const { container } = renderStandalone({ store });
+  fireEvent.click(container.querySelector("button.tv-anno-like")!);
+  const host = await waitFor(() => {
+    const el = container.querySelector(".tv-toast-host");
+    expect(el).not.toBeNull();
+    return el;
+  });
+  const panel = container.querySelector(".tv-anno-panel")!;
+  expect(panel.contains(host)).toBe(true);                   // 锚点在面板内，不挂死
+  expect(host!.textContent).toContain("操作失败,请重试");
+});
+
+// K-2②：独立渲染 + 传 notify → 转发宿主体系，且不再自渲染 toast host（防双通知）
+test("K-2 独立使用：传 notify 时失败转发宿主、不渲染内置 toast", async () => {
+  const notify = vi.fn();
+  const store = mockStore({ setLike: vi.fn(async () => { throw new Error("boom"); }) });
+  const { container } = renderStandalone({ store, notify });
+  fireEvent.click(container.querySelector("button.tv-anno-like")!);
+  await waitFor(() => expect(notify).toHaveBeenCalledWith("error", "操作失败,请重试"));
+  expect(container.querySelector(".tv-toast-host")).toBeNull();
+});
+
+// K-2③（M-2 锚点作用域）：两个独立面板同 focusId 只属 A → document.querySelector 会打到
+// DOM 序更靠前的 B（先渲染的 B 是受害者）；改 rootRef 内查询后 flash 只落 A 的卡片
+test("K-2 多实例互不串：focus 只闪自己面板里的卡片", async () => {
+  Element.prototype.scrollIntoView = vi.fn();
+  const anno = mkAnno({ id: 1 });
+  const b = renderStandalone({ annotations: [anno] });    // B 先渲染：全局查询会命中它的卡片
+  const a = renderStandalone({ annotations: [anno], focusId: 1, onFocusConsumed: vi.fn() });
+  const cardA = a.container.querySelector<HTMLElement>('.tv-anno-card[data-tv-anno-card="1"]')!;
+  const cardB = b.container.querySelector<HTMLElement>('.tv-anno-card[data-tv-anno-card="1"]')!;
+  await waitFor(() => expect(cardA.classList.contains("tv-anno-card-flash")).toBe(true));
+  expect(cardB.classList.contains("tv-anno-card-flash")).toBe(false);
+});
+
+// K-2④（M-1 文案）：单行 input 裸 Enter 即发送（行为正确），tooltip 文案须与之一致
+test("K-2 发送按钮 tooltip 与裸 Enter 行为一致：Enter 发送", () => {
+  const { container } = renderStandalone();
+  expect(container.querySelector('[data-tip="Enter 发送"]')).not.toBeNull();
+});
+
 test("无外点关闭(面板仅经触发按钮/✕ 关闭);open=false 时无展开类", () => {
   const onClose = vi.fn();
   const { container } = render(

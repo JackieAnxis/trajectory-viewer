@@ -63,6 +63,15 @@ test("applyLike 本地增量：楼与回复两种目标", async () => {
   await waitFor(() => expect(latest.annotations![0].replies[0].liked_by_me).toBe(true));
 });
 
+// K-1④：store.list() resolve null（违约的坏值，.catch 兜不住）→ 归一为空数组，
+// 面板走「暂无批注」空态而非永驻「加载中」
+test("K-1 list 违约 resolve null：归一为空数组，不落加载态", async () => {
+  render(<Harness store={storeOf(async () => null as unknown as Annotation[])} />);
+  await waitFor(() => expect(latest.annotations).toEqual([]));
+  expect(latest.annotations).not.toBeNull();
+  expect(latest.loadError).toBe(false);
+});
+
 test("切 dataSource：清空并重新拉取", async () => {
   const list = vi.fn(async () => [anno(1)]);
   render(<Harness store={storeOf(list)} />);

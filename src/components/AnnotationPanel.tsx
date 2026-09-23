@@ -2,15 +2,15 @@
  *  页签：全部/我的（我发的楼 ∪ 我参与回复的楼）/已解决；楼中楼两层（更深层由持久层压平）。
  *  写操作经 annotationStore 持久化；删除为行内二次确认（替代 Popconfirm）。
  *  无外点关闭（用户实测反馈移除）：仅经触发按钮 toggle 与 header ✕ 关闭。 */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faCommentDots, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
-import type { Annotation, AnnotationReply, AnnotationStore, LikeResult } from "../types";
+import type { Annotation, AnnotationReply, AnnotationStore, LikeResult, NotifyKind } from "../types";
 import { TvAvatar } from "../ui/TvAvatar";
 import { TvSegmented } from "../ui/TvSegmented";
 import { TvTooltip } from "../ui/TvTooltip";
 import { ConfirmButton } from "../ui/ConfirmButton";
-import { useNotify } from "../ui/notify";
+import { NotifyProvider, useHasNotifyProvider, useNotify } from "../ui/notify";
 
 export interface AnnotationPanelProps {
   open: boolean;
@@ -27,6 +27,9 @@ export interface AnnotationPanelProps {
   onQuoteClick: (a: Annotation) => void;   // 引用块点击 → 滚动定位高亮
   onChanged: () => void;              // 建/改/删/解决成功后回调（组合层重拉）
   onLike: (kind: "annotation" | "reply", targetId: number, next: LikeResult) => void;
+  /** 独立使用时的通知收口（逐字仿 TrajectoryViewer 的 onNotify 先例）；
+   *  主组件内由外层 NotifyProvider 接管，本 prop 被忽略 */
+  notify?: (kind: NotifyKind, text: string) => void;
 }
 
 /** HH:MM 短格式；完整时间走 title 悬浮 */
@@ -56,8 +59,15 @@ function deleteTitle(childCount: number): string {
   return childCount > 0 ? `删除后将同时删除 ${childCount} 条回复` : "确认删除？";
 }
 
+/** 公开出口（K-2）：独立使用（外层无 NotifyProvider）时在面板根内自包一层兜底——
+ *  传 notify 转发宿主体系，不传走内置 toast，不再永久静默；
+ *  自包时 Provider 必须落在面板根 div 之内：toast host 是 Provider 的 DOM 子孙，
+ *  面板的 position: relative（H-11d）才能以自身为锚包住它。
+ *  主组件内 H-11a 的 Provider 已在 .tv-root 内 → 不自包，防双 host */
 export default function AnnotationPanel(props: AnnotationPanelProps) {
+  const hasProvider = useHasNotifyProvider();
   const { open, annotations, me, isAdmin, onClose } = props;
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [tab, setTab] = useState<"all" | "mine" | "resolved">("all");
 
   const filtered = useMemo(() => {
@@ -70,10 +80,11 @@ export default function AnnotationPanel(props: AnnotationPanelProps) {
     return list;
   }, [annotations, tab, me]);
 
-  // 定位闪烁：高亮/卡片联动；定位后消费 focusId 防重复
+  // 定位闪烁：高亮/卡片联动；定位后消费 focusId 防重复。
+  // 查询限定在本面板 rootRef 内（M-2：document 全局查询在多实例时互串）
   useEffect(() => {
     if (props.focusId == null || !open) return;
-    const el = document.querySelector<HTMLElement>(`.tv-anno-card[data-tv-anno-card="${props.focusId}"]`);
+    const el = rootRef.current?.querySelector<HTMLElement>(`.tv-anno-card[data-tv-anno-card="${props.focusId}"]`);
     if (el) {
       el.scrollIntoView({ block: "center" });
       el.classList.add("tv-anno-card-flash");
@@ -91,8 +102,7 @@ export default function AnnotationPanel(props: AnnotationPanelProps) {
     onLike: props.onLike,
   };
 
-  return (
-    <div className={open ? "tv-anno-panel tv-anno-panel-open" : "tv-anno-panel"} aria-hidden={!open}>
+  const content = (<>
       <div className="tv-anno-panel-head">
         <span><FontAwesomeIcon icon={faCommentDots} /> 批注与讨论</span>
         <button type="button" className="tv-anno-panel-close" onClick={onClose} aria-label="关闭">
@@ -126,6 +136,13 @@ export default function AnnotationPanel(props: AnnotationPanelProps) {
           filtered.map((a) => <AnnotationCard key={a.id} a={a} store={props.store} {...ctx} />)
         )}
       </div>
+  </>);
+
+  return (
+    <div ref={rootRef} className={open ? "tv-anno-panel tv-anno-panel-open" : "tv-anno-panel"} aria-hidden={!open}>
+      {/* 独立使用时自包 Provider 于根 div 内 → 兜底 toast host 也落在面板内，
+          以面板自身 position: relative（H-11d）为锚，不外飘到容器 */}
+      {hasProvider ? content : <NotifyProvider onNotify={props.notify}>{content}</NotifyProvider>}
     </div>
   );
 }
@@ -289,7 +306,7 @@ function AnnotationCard({ a, store, ...ctx }: { a: Annotation; store: Annotation
           onChange={(e) => setReplyText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") void sendReply(); }}
         />
-        <TvTooltip title="Ctrl / ⌘ + Enter 发送">
+        <TvTooltip title="Enter 发送">
           <button type="button" disabled={!replyText.trim() || sending}
                   onClick={() => void sendReply()}>
             发送
