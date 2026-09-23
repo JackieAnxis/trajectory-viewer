@@ -50,10 +50,12 @@ test("媒体查询暗色尊重宿主 data-theme=light 强制", () => {
 test("H-1：二级导出组件类名出现在全部三个变量块的选择器列表中", () => {
   const hosts = [".tv-root", ".tv-anno-panel", ".tv-delivery-drawer"];
   for (const re of [LIGHT_RE, MEDIA_RE, DARK_RE]) {
-    const m = css.match(re);
+    // ★ 必须跑 noComments：文件头注释里的字面 `.tv-root` 会让 light 块从注释起切片，
+    // 「首位」与「成员」断言被注释恒真化（R-1：复审换位变异存活所致的守卫完整性缺陷）
+    const m = noComments.match(re);
     expect(m, `变量块正则未命中：${re.source}`).not.toBeNull();
     // 取「块体 { 之前的选择器列表」，断言三个宿主类名都在
-    const selectorList = css.slice(m?.index ?? 0, css.indexOf("{", m?.index ?? 0));
+    const selectorList = noComments.slice(m?.index ?? 0, noComments.indexOf("{", m?.index ?? 0));
     for (const h of hosts) expect(selectorList, `选择器列表缺 ${h}`).toContain(h);
     // .tv-root 必须保持列表首项（媒体块正则与上一条断言的前提）
     expect(selectorList.trimStart().startsWith(".tv-root")).toBe(true);
