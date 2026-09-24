@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "聊天式轨迹查看 React 组件：消息流、划线评论、交付物抽屉、可插拔原数据视图",
   "type": "module",
+  "license": "MIT",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,6 +13,23 @@
   },
   "files": ["dist"],
   "sideEffects": ["*.css"],
+  "author": "jackie <panjiacheng@zju.edu.cn>",
+  "keywords": [
+    "react",
+    "component",
+    "chat",
+    "trajectory",
+    "annotation",
+    "comment",
+    "markdown",
+    "viewer"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "vite demo",
