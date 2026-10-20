@@ -75,6 +75,16 @@ test("system 渲染为默认收起的「系统提示」卡片，点击展开", (
   expect(card).toHaveAttribute("open");
 });
 
+test("system 卡片带 label 时 summary 展示自定义标签替换默认文案", () => {
+  const { container } = renderView({
+    msgs: [m(0, "system", "思考文本", { label: "模型思考（166 字）" })],
+  });
+  const card = container.querySelector(".tv-chat-syscard") as HTMLDetailsElement;
+  expect(card).not.toBeNull();
+  expect(card.querySelector("summary")?.textContent).toContain("模型思考（166 字）");
+  expect(card.querySelector("summary")?.textContent).not.toContain("系统提示");
+});
+
 test("user 气泡按 Markdown 渲染", () => {
   const { container } = renderView({
     msgs: [m(0, "user", "帮我做一个**贪吃蛇**\n\n- 计分板\n- 加速键")],

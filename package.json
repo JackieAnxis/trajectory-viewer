@@ -1,6 +1,6 @@
 {
   "name": "trajectory-viewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "聊天式轨迹查看 React 组件：消息流、划线评论、交付物抽屉、可插拔原数据视图",
   "type": "module",
   "license": "MIT",

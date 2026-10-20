@@ -17,6 +17,8 @@ export interface Msg {
   tool_calls?: ToolCall[] | null;
   weight?: number | null;
   tool_call_id?: string | null;
+  /** system 折叠卡的 summary 文案;缺省渲染「系统提示」 */
+  label?: string | null;
 }
 
 /** 消息分页响应 */

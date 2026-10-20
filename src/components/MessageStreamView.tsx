@@ -126,7 +126,7 @@ function NodeView({ node }: { node: ChatNode }) {
   if (node.kind === "system") {
     return (
       <details className="tv-chat-card tv-chat-syscard">
-        <CardSummary icon={<FontAwesomeIcon icon={faGear} />} text="系统提示" />
+        <CardSummary icon={<FontAwesomeIcon icon={faGear} />} text={node.msg.label || "系统提示"} />
         <div className="tv-chat-card-body" data-msg-idx={node.msg.idx} data-region="content">{smartContent(node.msg.content)}</div>
       </details>
     );
